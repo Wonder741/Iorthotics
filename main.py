@@ -66,61 +66,64 @@ if __name__ == '__main__':
         with conn:
             # communication between server and client
             print('Connected to robot by: ', client_address)
-            rec_connection = ''
-            while rec_connection != 'robot start':
-                rec_connection = conn.recv(1024)
-                print('Received from robot: ', rec_connection)
+            try_connection = ''
+            while try_connection != 'robot start':
+                try_connection = bytes. decode(conn.recv(1024))
+            print('Received from robot: ', try_connection)
             conn.send(str.encode('server start'))
             print('Connection setup, both server and robot initialized')
 
             # system start picking and placing operation
             while pair_index <= max_pair_number:
-                # Robot camera try to find part in raw area
-                part_found_connection = ''
-                while part_found_connection != 'part found' or part_found_connection != 'none found':
-                    part_found_connection = conn.recv(1024)
-                # noting found in raw area, go next operation
-                if part_found_connection == 'none found':
+                data_received = ''
+                while data_received == '':
+                    data_received = bytes. decode(conn.recv(1024))
+                print('Receive message from robot: ', data_received)
+
+                if data_received == 'part found':
+                    # Robot camera try to find part in raw area
+                    conn.send(str.encode('go ocr'))
+
+                if data_received == 'part not found':
+                    # nothing found in raw area, go next operation
                     break
 
-                # feedback lead robot to ocr camera position
-                conn.send(str.encode('go ocr'))
-                ocr_position_connection = ''
-                while ocr_position_connection != 'ocr position':
-                    ocr_position_connection = conn.recv(1024)
+                if data_received == 'ocr position':
+                    # ocr camera capture image
+                    capture_image = camera_capture(camera_index, camera_resolution_width, camera_resolution_height)
+                    # save image for ocr and backup
+                    saved_image_name = image_save(capture_image, image_store_path, part_index)
+                    # ocr by google vision
+                    ocr_text = google_vision(image_store_path + 'scan.jpg')
+                    print('OCR recognized text: ', ocr_text)
+                    # save ocr text on csv file
+                    write_csv(saved_image_name, ocr_text)
+                    # process ocr strings
+                    part_number, part_keyword = words_process(ocr_text)
+                    if part_number is not None:
+                        # check order id from server
+                        order_id_flag, order_state, order_type, order_colour, order_thick \
+                            = server_check(part_number, csv_store_path, csv_temp_path)
+                    else:
+                        order_id_flag = False
+                        order_state = None
+                        order_type = None
+                        order_colour = None
+                        order_thick = None
+                    # fill up and update "pair_diction"
+                    pair_diction, pair_diction_index, pair_index = \
+                        diction_fill_up(pair_diction, part_index, part_number, pair_index, part_keyword, order_id_flag,
+                                        order_state, order_type, order_colour, order_thick)
+                    conn.send(str.encode(pair_diction_index))
 
-                # ocr camera capture image
-                capture_image = camera_capture(camera_index, camera_resolution_width, camera_resolution_height)
-                # save image for ocr and backup
-                saved_image_name = image_save(capture_image, image_store_path, part_index)
-                # ocr by google vision
-                ocr_text = google_vision(image_store_path + 'scan.jpg')
-                print('OCR recognized text: ', ocr_text)
-                # save ocr text on csv file
-                write_csv(saved_image_name, ocr_text)
-                # process ocr strings
-                part_number, part_keyword = words_process(ocr_text)
-                # check order id from server
-                order_id_flag, order_state, order_type, order_colour, order_thick \
-                    = server_check(part_number, csv_store_path, csv_temp_path)
-                # fill up "pair_diction"
-                pair_diction, pair_diction_index \
-                    = diction_fill_up(pair_diction, part_index, part_number, part_keyword, order_id_flag,
-                                      order_state, order_type, order_colour, order_thick)
+                if data_received == 'part placed':
+                    # go back to pick area
+                    conn.send(str.encode('go pick'))
 
-                # feedback lead robot to place position
-                conn.send(pair_diction_index.to_bytes(2, 'big'))
-                part_placed_connection = ''
-                while part_placed_connection != 'part placed':
-                    part_placed_connection = conn.recv(1024)
-
-                # feedback lead robot to pick position
-                conn.send(str.encode('go pick'))
-                part_index = part_index + 1
-                pair_index = 0
-                for location_index in range(70):
-                    if pair_diction[location_index]['location_placed']:
-                        pair_index = pair_index + 1
+            if pair_index >= max_pair_number:
+                print('Reach maximum pair number')
+            else:
+                print('No part found, go next operation')
 
     print("DISPLAYING GRID")
     display_grid(pair_diction)
