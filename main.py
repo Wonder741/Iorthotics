@@ -13,20 +13,20 @@ from sys_setup import display_grid
 
 if __name__ == '__main__':
     # path for google vision setup key
-    google_key_path = 'C:/Google Cloud/sanguine-link-334321-c27b40c6071a.json'
+    google_key_path = 'C:/Users/Healthia/Desktop/Workspace/iOrthotics/google_apikey.json'
     # path for captured image storage
-    image_store_path = 'C:/Google Cloud/ocr_data/'
+    image_store_path = 'C:/Users/Healthia/Desktop/Demo/Data21122021/'
     # path for ocr text storage
-    csv_store_path = 'C:/Google Cloud/ocr_data/image_ocr.csv'
+    csv_store_path = 'C:/Users/Healthia/Desktop/Demo/Data21122021/image_ocr.csv'
     # path for temp data check from server
-    csv_temp_path = 'C:/Google Cloud/ocr_data/order_export.csv'
+    csv_temp_path = 'C:/Users/Healthia/Desktop/Demo/Data21122021/order_export.csv'
     # path for server check tool
-    CLI_tool_path = 'C:/iOrthotics/iorthoticsserver/roboapi.exe'
+    CLI_tool_path = 'C:/Users/Healthia/Desktop/iorthoticsserver/roboapi.exe'
 
     # camera index and resolution setting
-    camera_index = 1
-    camera_resolution_width = 1920
-    camera_resolution_height = 1080
+    camera_index = 0
+    camera_resolution_width = 3224
+    camera_resolution_height = 2448
 
     # initialize google vision
     google_vision_setup(google_key_path)
@@ -74,7 +74,7 @@ if __name__ == '__main__':
             print('Connection setup, both server and robot initialized')
 
             # system start picking and placing operation
-            while pair_index <= max_pair_number:
+            while True:
                 data_received = ''
                 while data_received == '':
                     data_received = bytes. decode(conn.recv(1024))
@@ -97,24 +97,25 @@ if __name__ == '__main__':
                     ocr_text = google_vision(image_store_path + 'scan.jpg')
                     print('OCR recognized text: ', ocr_text)
                     # save ocr text on csv file
-                    write_csv(saved_image_name, ocr_text)
+                    write_csv(csv_store_path, saved_image_name, ocr_text)
                     # process ocr strings
-                    part_number, part_keyword = words_process(ocr_text)
-                    if part_number is not None:
+                    part_number, part_keyword, order_id_flag = words_process(ocr_text)
+
+                    if order_id_flag:
                         # check order id from server
                         order_id_flag, order_state, order_type, order_colour, order_thick \
-                            = server_check(part_number, csv_store_path, csv_temp_path)
+                            = server_check(part_number[0], csv_temp_path, CLI_tool_path)
                     else:
-                        order_id_flag = False
                         order_state = None
                         order_type = None
                         order_colour = None
                         order_thick = None
                     # fill up and update "pair_diction"
-                    pair_diction, pair_diction_index, pair_index = \
-                        diction_fill_up(pair_diction, part_index, part_number, pair_index, part_keyword, order_id_flag,
-                                        order_state, order_type, order_colour, order_thick)
-                    conn.send(str.encode(pair_diction_index))
+                    pair_diction, place_position = diction_fill_up(pair_diction, part_index, part_number, part_keyword, order_id_flag)
+                    part_index = part_index + 1
+                    print('place_position: ', place_position)
+                    conn.send((place_position).to_bytes(4,'big'))
+
 
                 if data_received == 'part placed':
                     # go back to pick area

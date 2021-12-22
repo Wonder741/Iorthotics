@@ -1,7 +1,7 @@
 import os
 import io
 import cv2
-import datetime
+from datetime import datetime
 import csv
 import re
 import subprocess
@@ -42,7 +42,8 @@ def camera_capture(capture_camera_index, capture_frame_width, capture_frame_heig
 
     capture_cam.set(cv2.CAP_PROP_FRAME_WIDTH, capture_frame_width)
     capture_cam.set(cv2.CAP_PROP_FRAME_WIDTH, capture_frame_height)
-    capture_cam.set(cv2.CAP_PROP_AUTOFOCUS, 0.5)
+    capture_cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)
+    # capture_cam.set(cv2.CAP_PROP_FOCUS, 320)
     #  capture_cam.set(cv2.CAP_PROP_FOCUS, 0)
     #  capture_cam.set(cv2.CAP_PROP_BRIGHTNESS, 0)
     #  capture_cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0)
@@ -50,15 +51,15 @@ def camera_capture(capture_camera_index, capture_frame_width, capture_frame_heig
     capture_success, capture_camera_image = capture_cam.read()
     if capture_success:  # frame captured without any errors
         print('capture success')
-        return capture_camera_image
     else:
         print('capture FAILED')
     capture_cam.release()
+    return capture_camera_image
 
 
 def image_save(image_to_save, save_path, image_index):
-    current_date = datetime.datetime.now()
-    date_hour = str(current_date.year) + str(current_date.month) + str(current_date.day) + str(current_date.hour)
+    now = datetime.now()
+    date_hour = str(now.year) + str(now.month) + str(now.day) + str(now.hour) + str(now.minute) + str(now.second)
 
     # save image for ocr
     cv2.imwrite(save_path + 'scan.jpg', image_to_save)
@@ -106,10 +107,10 @@ def build_diction():
     return diction
 
 
-def write_csv(image_name, csv_orc_words):
+def write_csv(wc_csv_path, image_name, csv_orc_words):
     data = [image_name, csv_orc_words]
 
-    with open('C:/Google Cloud/ocr_data/image_ocr.csv', 'a', encoding='UTF8', newline='') as f:
+    with open(wc_csv_path, 'a', encoding='UTF8', newline='') as f:
         writer = csv.writer(f)
 
         # write the data
@@ -120,18 +121,20 @@ def words_process(string_list):
     # find 6 digital number
     result_number = re.findall(r'\d{6}', str(string_list))
     # find non-digital characters and remove symbols
-    if result_number is not None:
+    if result_number != []:
         print('find order number: ', result_number)
         result_word = re.findall(r'\D+', str(string_list))
         result_word = re.findall(r'\w+', str(result_word))
         result_word = str(result_word).lower()
+        wp_number_flag = True
     else:
         result_word = re.findall(r'\w+', str(string_list))
         result_word = str(result_word).lower()
         print('NOT find order number')
         print('use keyword instead: ', result_word)
+        wp_number_flag = False
 
-    return result_number, result_word
+    return result_number, result_word, wp_number_flag
 
 
 # Function to check the order id against the server using the CLI tool developed
@@ -169,21 +172,16 @@ def server_check(sc_order_number, sc_csv_path, sc_tool_path):
     return sc_order_id_flag, sc_order_state, sc_data_type, sc_data_colour, sc_data_thick
 
 
-def diction_fill_up(df_diction, df_part_index, df_pair_number, df_part_number, df_part_keyword, df_order_flag,
-                    df_order_state, df_order_type, df_order_colour, df_order_thick):
+def diction_fill_up(df_diction, df_part_index, df_part_number, df_part_keyword, df_order_flag):
     df_diction_index = 0
+    print('df_order_flag', df_order_flag)
     if df_order_flag:
         for df_diction_index in range(df_part_index + 1):
             if df_diction[df_diction_index]['order_id'] == df_part_number \
                     and not df_diction[df_diction_index]['pair_found']:
                 df_diction[df_diction_index]['pair_found'] = True
-                df_pair_number = df_pair_number + 1
                 df_diction[df_diction_index]['source'] = 'IN'
                 df_diction[df_diction_index]['keyword_2'] = df_part_keyword
-                df_diction[df_diction_index]['state'] = df_order_state
-                df_diction[df_diction_index]['top_type'] = df_order_type
-                df_diction[df_diction_index]['top_colour'] = df_order_colour
-                df_diction[df_diction_index]['top_thick'] = df_order_thick
                 print('TWO internal parts paired at position: ', df_diction_index)
                 break
             if df_diction[df_diction_index]['order_id'] != df_part_number \
@@ -200,7 +198,6 @@ def diction_fill_up(df_diction, df_part_index, df_pair_number, df_part_number, d
             if df_diction[df_diction_index]['keyword_1'] == df_part_keyword \
                     and not df_diction[df_diction_index]['pair_found']:
                 df_diction[df_diction_index]['pair_found'] = True
-                df_pair_number = df_pair_number + 1
                 df_diction[df_diction_index]['source'] = 'EX'
                 df_diction[df_diction_index]['keyword_2'] = df_part_keyword
                 print('TWO external parts paired at position: ', df_diction_index)
@@ -211,18 +208,19 @@ def diction_fill_up(df_diction, df_part_index, df_pair_number, df_part_number, d
                 df_diction[df_diction_index]['keyword_1'] = df_part_keyword
                 df_diction[df_diction_index]['location_placed'] = True
                 df_diction[df_diction_index]['source'] = 'EX'
-                print('Single internal part placed at position: ', df_diction_index)
+                print('Single external part placed at position: ', df_diction_index)
                 break
     print("Diction filled")
-    return df_diction, df_diction_index, df_pair_number
+    return df_diction, df_diction_index
 
 
 if __name__ == '__main__':
     # camera and OCR test
-    google_key_path = 'C:/Google Cloud/sanguine-link-334321-c27b40c6071a.json'
-    image_store_path = 'C:/Google Cloud/ocr_data/'
-    csv_temp_path = 'C:/Google Cloud/ocr_data/order_export.csv'
-    CLI_tool_path = 'C:/iOrthotics/iorthoticsserver/roboapi.exe'
+    google_key_path = 'C:/Users/Healthia/Desktop/Workspace/iOrthotics/google_apikey.json'
+    image_store_path = 'C:/Users/Healthia/Desktop/Demo/Data21122021/'
+    csv_store_path = 'C:/Users/Healthia/Desktop/Demo/Data21122021/image_ocr.csv'
+    csv_temp_path = 'C:/Users/Healthia/Desktop/Demo/Data21122021/order_export.csv'
+    CLI_tool_path = 'C:/Users/Healthia/Desktop/iorthoticsserver/roboapi.exe'
     camera_index = 1
     camera_resolution_width = 1920
     camera_resolution_height = 1080
@@ -240,7 +238,7 @@ if __name__ == '__main__':
         ocr_text = google_vision(image_store_path + 'scan.jpg')
         print(ocr_text)
         # save ocr text on csv file
-        write_csv(saved_image_name, ocr_text)
+        write_csv(csv_store_path, saved_image_name, ocr_text)
         # process ocr strings
         part_number, part_keyword = words_process(ocr_text)
         # check order id from server
