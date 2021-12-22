@@ -10,7 +10,6 @@ from sys_setup import server_check
 from sys_setup import diction_fill_up
 from sys_setup import display_grid
 
-
 if __name__ == '__main__':
     # path for google vision setup key
     google_key_path = 'C:/Users/Healthia/Desktop/Workspace/iOrthotics/google_apikey.json'
@@ -42,6 +41,7 @@ if __name__ == '__main__':
     pair_index = 0
     part_index = 0
     max_pair_number = 70
+    terminate_code = 99
 
     # Input "n" to start new session
     while True:
@@ -68,7 +68,7 @@ if __name__ == '__main__':
             print('Connected to robot by: ', client_address)
             try_connection = ''
             while try_connection != 'robot start':
-                try_connection = bytes. decode(conn.recv(1024))
+                try_connection = bytes.decode(conn.recv(1024))
             print('Received from robot: ', try_connection)
             conn.send(str.encode('server start'))
             print('Connection setup, both server and robot initialized')
@@ -77,7 +77,7 @@ if __name__ == '__main__':
             while True:
                 data_received = ''
                 while data_received == '':
-                    data_received = bytes. decode(conn.recv(1024))
+                    data_received = bytes.decode(conn.recv(1024))
                 print('Receive message from robot: ', data_received)
 
                 if data_received == 'part found':
@@ -103,7 +103,7 @@ if __name__ == '__main__':
 
                     if order_id_flag:
                         # check order id from server
-                        order_id_flag, order_state, order_type, order_colour, order_thick \
+                        order_state, order_type, order_colour, order_thick \
                             = server_check(part_number[0], csv_temp_path, CLI_tool_path)
                     else:
                         order_state = None
@@ -111,20 +111,21 @@ if __name__ == '__main__':
                         order_colour = None
                         order_thick = None
                     # fill up and update "pair_diction"
-                    pair_diction, place_position = diction_fill_up(pair_diction, part_index, part_number, part_keyword, order_id_flag)
+                    pair_diction, place_position = diction_fill_up(pair_diction, part_index, part_number, part_keyword,
+                                                                   order_id_flag, order_state, order_type, order_colour,
+                                                                   order_thick)
                     part_index = part_index + 1
-                    print('place_position: ', place_position)
-                    conn.send((place_position).to_bytes(4,'big'))
-
+                    # Avoid exceed pairing space limitation
+                    if place_position > 70:
+                        print('Exceed the maximum pair number')
+                        conn.send(terminate_code.to_bytes(4, 'big'))
+                    else:
+                        print('Place position: ', place_position)
+                        conn.send(place_position.to_bytes(4, 'big'))
 
                 if data_received == 'part placed':
                     # go back to pick area
                     conn.send(str.encode('go pick'))
-
-            if pair_index >= max_pair_number:
-                print('Reach maximum pair number')
-            else:
-                print('No part found, go next operation')
 
     print("DISPLAYING GRID")
     display_grid(pair_diction)

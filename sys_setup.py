@@ -112,7 +112,6 @@ def write_csv(wc_csv_path, image_name, csv_orc_words):
 
     with open(wc_csv_path, 'a', encoding='UTF8', newline='') as f:
         writer = csv.writer(f)
-
         # write the data
         writer.writerow(data)
 
@@ -121,12 +120,13 @@ def words_process(string_list):
     # find 6 digital number
     result_number = re.findall(r'\d{6}', str(string_list))
     # find non-digital characters and remove symbols
-    if result_number != []:
+    if result_number:
         print('find order number: ', result_number)
         result_word = re.findall(r'\D+', str(string_list))
         result_word = re.findall(r'\w+', str(result_word))
         result_word = str(result_word).lower()
         wp_number_flag = True
+    # cannot find number id, use keyword instead
     else:
         result_word = re.findall(r'\w+', str(string_list))
         result_word = str(result_word).lower()
@@ -143,20 +143,21 @@ def server_check(sc_order_number, sc_csv_path, sc_tool_path):
     args = [sc_tool_path, 'get-order', '-s', 'aus', '-k', '1LpGQMtIo3oHy6D174fmj40p',
             '--order-number', str(sc_order_number), '-f', sc_csv_path, '-q']
     subprocess.call(args)
+
+    sc_order_state = None
+    sc_data_colour = None
+    sc_data_thick = None
+    sc_data_type = None
+
     with open(sc_csv_path) as csvDataFile:
         sc_data = list(csv.reader(csvDataFile))
-        sc_order_state = None
-        sc_data_colour = None
-        sc_data_thick = None
-        sc_data_type = None
 
         for sc_data_index in range(len(sc_data)):
             sc_data_name = sc_data[sc_data_index][0]
             sc_data_data = sc_data[sc_data_index][1]
             if sc_data_name == 'OrderNumber' and str(sc_data_data) == '00217':
-                sc_order_id_flag = False
-                print("ORDER ID INCORRECT:", sc_order_number)
-                return sc_order_id_flag, sc_order_state, sc_data_type, sc_data_colour, sc_data_thick
+                print("ORDER ID INCORRECT or FAILED to connect server: ", sc_order_number)
+                return sc_order_state, sc_data_type, sc_data_colour, sc_data_thick
             else:
                 if sc_data_name == 'Status':
                     sc_order_state = str(sc_data_data).lower()
@@ -167,12 +168,12 @@ def server_check(sc_order_number, sc_csv_path, sc_tool_path):
                     sc_data_type = str(sc_data_data).lower()
                 if sc_data_name == 'FootOrthotic.finishing.top_covers.content':
                     sc_data_thick = str(sc_data_data).lower()
-    sc_order_id_flag = True
-    print('ORDER ID found: ', sc_order_number)
-    return sc_order_id_flag, sc_order_state, sc_data_type, sc_data_colour, sc_data_thick
+    print('ORDER information found: ', sc_order_number)
+    return sc_order_state, sc_data_type, sc_data_colour, sc_data_thick
 
 
-def diction_fill_up(df_diction, df_part_index, df_part_number, df_part_keyword, df_order_flag):
+def diction_fill_up(df_diction, df_part_index, df_part_number, df_part_keyword, df_order_flag, df_order_state,
+                    df_order_type, df_order_colour, df_order_thick):
     df_diction_index = 0
     print('df_order_flag', df_order_flag)
     if df_order_flag:
@@ -180,9 +181,14 @@ def diction_fill_up(df_diction, df_part_index, df_part_number, df_part_keyword, 
             if df_diction[df_diction_index]['order_id'] == df_part_number \
                     and not df_diction[df_diction_index]['pair_found']:
                 df_diction[df_diction_index]['pair_found'] = True
-                df_diction[df_diction_index]['source'] = 'IN'
                 df_diction[df_diction_index]['keyword_2'] = df_part_keyword
-                print('TWO internal parts paired at position: ', df_diction_index)
+
+                if df_order_state == 'cooling' or df_order_state == 'finishing':
+                    df_diction[df_diction_index]['source'] = ' IN NEW'
+                    print('TWO new internal parts paired at position: ', df_diction_index)
+                else:
+                    df_diction[df_diction_index]['source'] = ' IN USED'
+                    print('TWO used internal parts paired at position: ', df_diction_index)
                 break
             if df_diction[df_diction_index]['order_id'] != df_part_number \
                     and not df_diction[df_diction_index]['location_placed'] \
@@ -190,15 +196,24 @@ def diction_fill_up(df_diction, df_part_index, df_part_number, df_part_keyword, 
                 df_diction[df_diction_index]['order_id'] = df_part_number
                 df_diction[df_diction_index]['keyword_1'] = df_part_keyword
                 df_diction[df_diction_index]['location_placed'] = True
-                df_diction[df_diction_index]['source'] = 'IN'
-                print('Single internal part placed at position: ', df_diction_index)
+                df_diction[df_diction_index]['state'] = df_order_state
+                df_diction[df_diction_index]['top_type'] = df_order_type
+                df_diction[df_diction_index]['top_colour'] = df_order_colour
+                df_diction[df_diction_index]['top_thick'] = df_order_thick
+
+                if df_order_state == 'cooling' or df_order_state == 'finishing':
+                    df_diction[df_diction_index]['source'] = ' IN NEW'
+                    print('Single new internal parts paired at position: ', df_diction_index)
+                else:
+                    df_diction[df_diction_index]['source'] = ' IN USED'
+                    print('Single used internal parts paired at position: ', df_diction_index)
                 break
     else:
         for df_diction_index in range(df_part_index + 1):
             if df_diction[df_diction_index]['keyword_1'] == df_part_keyword \
                     and not df_diction[df_diction_index]['pair_found']:
                 df_diction[df_diction_index]['pair_found'] = True
-                df_diction[df_diction_index]['source'] = 'EX'
+                df_diction[df_diction_index]['source'] = ' EX'
                 df_diction[df_diction_index]['keyword_2'] = df_part_keyword
                 print('TWO external parts paired at position: ', df_diction_index)
                 break
@@ -240,19 +255,6 @@ if __name__ == '__main__':
         # save ocr text on csv file
         write_csv(csv_store_path, saved_image_name, ocr_text)
         # process ocr strings
-        part_number, part_keyword = words_process(ocr_text)
+        part_number, part_keyword, id_flag = words_process(ocr_text)
         # check order id from server
-        order_id_flag, order_state, order_type, order_colour, order_thick = server_check(part_number)
-        # fill up dictionary
-        if order_id_flag:
-            pair_diction[capture_index]['order_id'] = str(part_number)
-            pair_diction[capture_index]['keyword_1'] = part_keyword[1]
-            pair_diction[capture_index]['keyword_2'] = part_keyword
-            pair_diction[capture_index]['type'] = order_type
-            pair_diction[capture_index]['colour'] = order_colour
-            pair_diction[capture_index]['thick'] = order_thick
-        else:
-            pair_diction[capture_index]['keyword_1'] = part_keyword[0]
-            pair_diction[capture_index]['keyword_2'] = part_keyword[1]
-    # display dictionary on table
-    display_grid(pair_diction)
+        order_state, order_type, order_colour, order_thick = server_check(part_number, csv_temp_path, CLI_tool_path)
