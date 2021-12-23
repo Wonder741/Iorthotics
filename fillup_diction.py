@@ -1,4 +1,41 @@
 from sys_setup import build_diction, write_csv, words_process, display_grid
+from tkinter import *
+from tkinter import ttk
+
+
+def display_table(dt_diction):
+    root = Tk()
+    root.title('Pair position')
+    root.geometry('700x1000')
+
+    my_tree = ttk.Treeview(root)
+    # Format column
+    my_tree['column'] = ['Position', 'Order ID', 'Source', 'Keywords']
+    my_tree.column('#0', width=30)
+    my_tree.column('Position', anchor=CENTER, width=60)
+    my_tree.column('Order ID', anchor=CENTER, width=80)
+    my_tree.column('Source', anchor=CENTER, width=80)
+    my_tree.column('Keywords', anchor=W, width=400)
+
+    # Create heading
+    my_tree.heading('#0', text='')
+    my_tree.heading('Position', text='Position', anchor=CENTER)
+    my_tree.heading('Order ID', text='Order ID', anchor=CENTER)
+    my_tree.heading('Source', text='Source', anchor=CENTER)
+    my_tree.heading('Keywords', text='Keywords', anchor=W)
+
+    # Adding data
+    for dt_index in range(len(dt_diction)):
+        dt_record = dt_diction[dt_index]
+        dt_d = (dt_index // 7) + 65
+        dt_da = chr(dt_d)
+        dt_r = dt_index % 7
+        dt_p = str(dt_da) + str(dt_r)
+
+        my_tree.insert(parent='', index='end', iid=dt_index, text='',
+                       value=(dt_p, dt_record['order_id'], dt_record['source'], dt_record['keyword_1']))
+    my_tree.pack(pady=70)
+    root.mainloop()
 
 
 def diction_fill_up(df_diction, df_part_index, df_part_number, df_part_keyword, df_order_flag):
@@ -69,9 +106,10 @@ if __name__ == '__main__':
     for part_index in range(len(part)):
         ocr_text = part[part_index]
         print(ocr_text)
-        write_csv(part_index, ocr_text)
-        part_number, part_keyword = words_process(ocr_text)
+        #write_csv(part_index, ocr_text)
+        part_number, part_keyword, part_flag = words_process(ocr_text)
         pair_diction, place_position[part_index] = diction_fill_up(pair_diction, part_index, part_number,
                                                                    part_keyword, order_id_flag[part_index])
     print(place_position)
-    display_grid(pair_diction)
+    display_table(pair_diction)
+    #display_grid(pair_diction)
