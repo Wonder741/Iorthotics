@@ -1,0 +1,83 @@
+ Program
+   BeforeStart
+     s_open≔socket_open("192.168.0.10",30000)
+     MoveJ
+       pick_pos
+     Loop s_open ≟  False 
+       s_open≔socket_open("192.168.0.10",30000)
+     robot_start≔"robot start"
+     server_start≔"server start"
+     part_found≔"part found"
+     part_n_found≔"part not found"
+     go_ocr≔"go ocr"
+     ocr_position≔"ocr position"
+     part_placed≔"part placed"
+     go_pick≔"go pick"
+     var_2≔"0"
+   Robot Program
+     toserver≔robot_start
+     socket_send_string(toserver)
+     Wait: 0.01
+     fromserver≔socket_read_string()
+     Loop fromserver ≠ server_start
+       fromserver≔socket_read_string()
+       Wait: 0.01
+     campos_1
+       Loop
+         MoveJ
+           pick_pos
+         Cam Locate
+           For object(s) found
+             lp_br≔ False 
+             socket_send_string(part_found)
+             target≔object_location
+             target[2] = target[2] + 0.02
+             MoveL
+               target
+             Find Surface
+               'Add Stop conditions from the Find Surface node'
+             vac_test≔rq_is_vacuum_obj_detected("1")
+             Vacuum Grip  (1)           
+             vac_test≔rq_is_vacuum_obj_detected("1")
+             If vac_test == False 
+               Vacuum Release  (1)           
+               break
+             Find Surface
+               'Add Stop conditions from the Find Surface node'
+               If surface found
+                 'Sequence if force threshold is reached'
+                 Vacuum Release  (1)           
+                 lp_br≔ True 
+             If lp_br == True
+               break
+             MoveJ
+               pick_pos
+             vac_test≔rq_is_vacuum_obj_detected("1")
+             If vac_test == False 
+               Vacuum Release  (1)           
+               break
+             fromserver≔socket_read_string()
+             Loop fromserver ≠ go_ocr
+               fromserver≔socket_read_string()
+               Wait: 0.01
+             MoveJ
+               ocr_pos
+             socket_send_string(ocr_position)
+             Wait: 0.5
+             place_position≔socket_read_binary_integer(1)
+             Loop place_position[0] ≠ 1
+               place_position≔socket_read_binary_integer(1)
+             MoveJ
+               place_pos
+             If  place_position[1] == 99
+               MoveJ
+                 failed_pos
+             Script: place_part.script
+             Vacuum Release  (1)           
+             MoveJ
+               place_pos
+           If no object found
+             Wait: 0.5
+             break
+     Popup: End
+     'If start_stop[1] == 1'
