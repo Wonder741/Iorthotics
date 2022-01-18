@@ -6,6 +6,8 @@ import csv
 import re
 import subprocess
 import tkinter as tk
+from tkinter import *
+from tkinter import ttk
 from google.cloud import vision
 
 
@@ -75,6 +77,7 @@ def image_save(image_to_save, save_path, image_index):
 def display_grid(order_diction):
     root = tk.Tk()
     root.title("Sorted Grid")
+    root.geometry('1500x1000')
     cols = ["", "A", "B", "C", "D", "E", "F", "G"]
     rows = ["", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
     od_index = 0
@@ -82,16 +85,15 @@ def display_grid(order_diction):
     for grid_i in range(11):
         for grid_j in range(8):
             if grid_i == 0:
-                tk.Label(root, relief='groove', height=2, width=10,
+                tk.Label(root, relief='groove', height=2, width=5,
                          text=cols[grid_j]).grid(row=grid_i, column=grid_j, sticky='NSEW')
             elif grid_j == 0:
-                tk.Label(root, relief='groove', height=2, width=10,
+                tk.Label(root, relief='groove', height=3, width=5,
                          text=rows[grid_i]).grid(row=grid_i, column=grid_j, sticky='NSEW')
             else:
-                filled_words = str(order_diction[od_index]['order_id']) + str(order_diction[od_index]['source']) + \
-                               '\n' + str(order_diction[od_index]['keyword_1']) + \
-                               '\n' + str(order_diction[od_index]['keyword_2'])
-                tk.Label(root, bg="white", height=3, width=18, relief='ridge',
+                filled_words = str(order_diction[od_index]['order_id']) + '\n' + str(order_diction[od_index]['source']) + \
+                               '\n' + str(order_diction[od_index]['keyword_1'])
+                tk.Label(root, bg="white", height=3, width=24, relief='ridge',
                          text=filled_words).grid(row=grid_i, column=grid_j, sticky='NSEW')
                 od_index = od_index + 1
     root.mainloop()
@@ -102,8 +104,7 @@ def build_diction():
     diction = {}
     for diction_index in range(part_count):
         diction[diction_index] = {'order_id': '0', 'location_placed': False, 'source': None, 'state': None,
-                                  'pair_found': False, 'keyword_1': [], 'keyword_2': [],
-                                  'top_type': [], 'top_colour': [], 'top_thick': []}
+                                  'pair_found': False, 'keyword_1': [], 'top_type': [], 'top_colour': [], 'top_thick': []}
     return diction
 
 
@@ -151,8 +152,10 @@ def server_check(sc_order_number, sc_csv_path, sc_tool_path):
 
     with open(sc_csv_path) as csvDataFile:
         sc_data = list(csv.reader(csvDataFile))
+        # print(sc_data)
 
         for sc_data_index in range(len(sc_data)):
+            # print(sc_data_index)
             sc_data_name = sc_data[sc_data_index][0]
             sc_data_data = sc_data[sc_data_index][1]
             if sc_data_name == 'OrderNumber' and str(sc_data_data) == '00217':
@@ -164,6 +167,7 @@ def server_check(sc_order_number, sc_csv_path, sc_tool_path):
                 # search for colour information
                 if sc_data_name == 'FootOrthotic.finishing.top_covers.color':
                     sc_data_colour = str(sc_data_data).lower()
+                    break
                 if sc_data_name == 'FootOrthotic.finishing.top_covers.cover':
                     sc_data_type = str(sc_data_data).lower()
                 if sc_data_name == 'FootOrthotic.finishing.top_covers.content':
@@ -181,7 +185,6 @@ def diction_fill_up(df_diction, df_part_index, df_part_number, df_part_keyword, 
             if df_diction[df_diction_index]['order_id'] == df_part_number \
                     and not df_diction[df_diction_index]['pair_found']:
                 df_diction[df_diction_index]['pair_found'] = True
-                df_diction[df_diction_index]['keyword_2'] = df_part_keyword
 
                 if df_order_state == 'cooling' or df_order_state == 'finishing':
                     df_diction[df_diction_index]['source'] = ' IN NEW'
@@ -214,7 +217,6 @@ def diction_fill_up(df_diction, df_part_index, df_part_number, df_part_keyword, 
                     and not df_diction[df_diction_index]['pair_found']:
                 df_diction[df_diction_index]['pair_found'] = True
                 df_diction[df_diction_index]['source'] = ' EX'
-                df_diction[df_diction_index]['keyword_2'] = df_part_keyword
                 print('TWO external parts paired at position: ', df_diction_index)
                 break
             if df_diction[df_diction_index]['keyword_1'] != df_part_keyword \
@@ -229,32 +231,40 @@ def diction_fill_up(df_diction, df_part_index, df_part_number, df_part_keyword, 
     return df_diction, df_diction_index
 
 
-if __name__ == '__main__':
-    # camera and OCR test
-    google_key_path = 'C:/Users/Healthia/Desktop/Workspace/iOrthotics/google_apikey.json'
-    image_store_path = 'C:/Users/Healthia/Desktop/Demo/Data21122021/'
-    csv_store_path = 'C:/Users/Healthia/Desktop/Demo/Data21122021/image_ocr.csv'
-    csv_temp_path = 'C:/Users/Healthia/Desktop/Demo/Data21122021/order_export.csv'
-    CLI_tool_path = 'C:/Users/Healthia/Desktop/iorthoticsserver/roboapi.exe'
-    camera_index = 1
-    camera_resolution_width = 1920
-    camera_resolution_height = 1080
-    # build a diction
-    pair_diction = build_diction()
+def display_table(dt_diction):
+    root = Tk()
+    root.title('Pair position')
+    root.geometry('700x1000')
 
-    for capture_index in range(2):
-        # capture image from camera
-        capture_image = camera_capture(camera_index, camera_resolution_width, camera_resolution_height)
-        # save image for ocr and backup
-        saved_image_name = image_save(capture_image, image_store_path, capture_index)
-        # initialize google vision
-        google_vision_setup(google_key_path)
-        # ocr by google vision
-        ocr_text = google_vision(image_store_path + 'scan.jpg')
-        print(ocr_text)
-        # save ocr text on csv file
-        write_csv(csv_store_path, saved_image_name, ocr_text)
-        # process ocr strings
-        part_number, part_keyword, id_flag = words_process(ocr_text)
-        # check order id from server
-        order_state, order_type, order_colour, order_thick = server_check(part_number, csv_temp_path, CLI_tool_path)
+    my_tree = ttk.Treeview(root, height='1000')
+    # Format column
+    my_tree['column'] = ['Position', 'Order ID', 'Source', 'Keywords']
+    my_tree.column('#0', width=30)
+    my_tree.column('Position', anchor=CENTER, width=60)
+    my_tree.column('Order ID', anchor=CENTER, width=80)
+    my_tree.column('Source', anchor=CENTER, width=80)
+    my_tree.column('Keywords', anchor=W, width=400)
+
+    # Create heading
+    my_tree.heading('#0', text='')
+    my_tree.heading('Position', text='Position', anchor=CENTER)
+    my_tree.heading('Order ID', text='Order ID', anchor=CENTER)
+    my_tree.heading('Source', text='Source', anchor=CENTER)
+    my_tree.heading('Keywords', text='Keywords', anchor=W)
+
+    # Adding data
+    for dt_index in range(len(dt_diction)):
+        dt_record = dt_diction[dt_index]
+        dt_d = (dt_index // 7) + 65
+        dt_da = chr(dt_d)
+        dt_r = dt_index % 7
+        dt_p = str(dt_da) + str(dt_r)
+
+        my_tree.insert(parent='', index='end', iid=dt_index, text='',
+                       value=(dt_p, dt_record['order_id'], dt_record['source'], dt_record['keyword_1']))
+    my_tree.pack(pady=5)
+    root.mainloop()
+
+
+if __name__ == '__main__':
+    pass
