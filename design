@@ -1,0 +1,31 @@
+Input:
+pair_diction
+		'location_placed'
+        'pair_found'
+		'top_list'
+top_class
+Output:
+		place_postion
+		top_code
+
+
+top_class
+	{0: ["eva", "2mm", "black"]
+	1: ["eva", "3mm", "black"]
+	2: ["eva", "2mm", "blue"]
+	3: ["eva", "3mm", "blue"]
+	4: ["eva", "2mm", "red"]
+	5: ["eva", "3mm", "red"]
+	6: ["eva", "2mm", "blu/yel"]
+	7: ["eva", "3mm", "blu/yel"]
+	8: ["eva", "2mm", "black"]
+	9: ["eva", "2mm", "black"]
+	10: ["eva", "2mm", "black"]
+	11: ["eva", "2mm", "black"]
+	12: ["eva", "2mm", "black"]
+	13: ["eva", "2mm", "black"]
+	14: ["eva", "2mm", "black"]
+	
+	}
+	
+	
