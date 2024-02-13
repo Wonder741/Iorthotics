@@ -8,10 +8,10 @@ import subprocess
 import tkinter as tk
 from tkinter import *
 from tkinter import ttk
-from google.cloud import vision
+# from google.cloud import vision
 
 
-def google_vision_setup(env_var_value):
+""" def google_vision_setup(env_var_value):
     env_var = 'GOOGLE_APPLICATION_CREDENTIALS'
     os.environ[env_var] = env_var_value
 
@@ -34,7 +34,7 @@ def google_vision(google_vision_path):
         print('characters detected')
         for i in range(1, len(annotations)):
             google_vision_text.append(annotations[i].description)
-    return google_vision_text
+    return google_vision_text """
 
 
 # Function to capture image from the usb camera. Subject to change if camera changes.
