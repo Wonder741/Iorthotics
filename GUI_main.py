@@ -19,6 +19,9 @@ csv_store_path = 'D://A//1 InsoleDataset//Data//image_ocr.csv'
 # path for JSON file that keep diction
 json_diction_path ='D://A//1 InsoleDataset//Data//js_diction.json'
 
+# Global variable to keep track of the socket
+global_socket = None
+# Global variable to keep sent data for resend
 processed_floats = []
 
 def log_message(message):
@@ -69,6 +72,9 @@ def start_session():
     root.wait_window(dialog)  # Wait here until dialog is destroyed
 
 def handle_robot_communication(conn):
+    global global_socket
+    global_socket = conn  # Keep track of the socket
+
     try:
         while True:
             data_received = bytes.decode(conn.recv(1024))
@@ -120,6 +126,7 @@ def handle_robot_communication(conn):
         log_message(f"An error occurred during communication: {str(e)}")
     finally:
         conn.close()
+        global_socket = None  # Reset the socket variable when done
 
 def setup_robot_connection():
     Host = host_var.get()
@@ -162,6 +169,20 @@ def setup_robot_connection():
 
     except Exception as e:
         log_message(f"An error occurred during setup: {str(e)}")
+
+def disconnect_socket():
+    """Function to disconnect the socket connection."""
+    global global_socket
+    if global_socket:
+        try:
+            global_socket.close()  # Close the socket
+            log_message("Socket connection closed.")
+        except Exception as e:
+            log_message(f"An error occurred while closing the socket: {str(e)}")
+        finally:
+            global_socket = None
+    else:
+        log_message("No active socket connection to close.")
 
 # Create the main window
 root = tk.Tk()
@@ -226,6 +247,8 @@ frame_controls = tk.Frame(root)
 frame_controls.pack(fill=tk.X, padx=10, pady=5)
 
 tk.Button(frame_controls, text="Start", command=start_session).pack(side=tk.RIGHT)
+# Add the "Disconnect" button to the GUI
+tk.Button(frame_controls, text="Disconnect", command=disconnect_socket).pack(side=tk.RIGHT, padx=5)
 
 # Text area for logging messages
 text_area = scrolledtext.ScrolledText(root, state='disabled', height=10)
