@@ -2,24 +2,11 @@ import socket
 import json
 import os
 import GUI_function
-import struct
 import tkinter as tk
-import time
 from tkinter import simpledialog, scrolledtext, messagebox, Toplevel, Button
-import threading
 
-Folder_path = 'D://A//1 InsoleDataset//Data//'
 # path for google vision setup key
-google_key_path = 'D://A//1 InsoleDataset//Data//GoogleAPI//'
-# path for captured image storage
-OB_image_path = 'D://A//1 InsoleDataset//Data//OB//'
-OCR_image_path = 'D://A//1 InsoleDataset//Data//OCR//'
-# path for ocr text storage
-csv_store_path = 'D://A//1 InsoleDataset//Data//image_ocr.csv'
-# path for JSON file that keep diction
-json_diction_path ='D://A//1 InsoleDataset//Data//js_diction.json'
-
-processed_floats = []
+google_key_path = 'D://A//1 InsoleDataset//GoogleAPI//'
 
 def log_message(message):
     """Function to log messages to the text area in the GUI."""
@@ -68,100 +55,61 @@ def start_session():
     dialog.grab_set()  # Modal
     root.wait_window(dialog)  # Wait here until dialog is destroyed
 
-def handle_robot_communication(conn):
-    try:
-        while True:
-            data_received = bytes.decode(conn.recv(1024))
-            if not data_received:
-                break  # Exit the loop if no data is received
-
-            log_message(f'Received from robot: {data_received}')
-
-            if data_received == 'wait pose':
-                conn.send(str.encode('go pick'))
-                log_message('Send to robot: go pick')
-                time.sleep(0.5)
-                floats_to_send_1 = [-0.382, 0.155, 0.374, 2.22, 2.22, 0]
-                # Multiply each float by 1000 and convert to int
-                processed_floats = [int(x * 1000) for x in floats_to_send_1]
-                for x in processed_floats:
-                    abs_x = abs(x)
-                    sign = 1 if x >= 0 else 0  # 1 for positive, 0 for negative
-                    conn.send(abs_x.to_bytes(4, 'big'))
-                    conn.send(sign.to_bytes(4, 'big'))  # Send the sign as 1 byte
-                log_message('Send pose to robot')
-                time.sleep(0.1)
-
-            elif data_received == 'ocr pose':
-                conn.send(str.encode('go place'))
-                log_message('Send to robot: go place')
-                time.sleep(0.5)
-                floats_to_send_2 = [-0.156, -0.381, 0.374, 0, 3.14, 0]
-                processed_floats = [int(x * 1000) for x in floats_to_send_2]
-                for x in processed_floats:
-                    abs_x = abs(x)
-                    sign = 1 if x >= 0 else 0  # 1 for positive, 0 for negative
-                    conn.send(abs_x.to_bytes(4, 'big'))
-                    conn.send(sign.to_bytes(4, 'big'))  # Send the sign as 1 byte
-                log_message('Send pose to robot')
-                time.sleep(0.1)
-
-            elif data_received == 'send again':
-                time.sleep(0.5)
-                for x in processed_floats:
-                    abs_x = abs(x)
-                    sign = 1 if x >= 0 else 0  # 1 for positive, 0 for negative
-                    conn.send(abs_x.to_bytes(4, 'big'))
-                    conn.send(sign.to_bytes(4, 'big'))  # Send the sign as 1 byte
-                log_message('Send pose to robot')
-                time.sleep(0.1)
-
-    except Exception as e:
-        log_message(f"An error occurred during communication: {str(e)}")
-    finally:
-        conn.close()
-
 def setup_robot_connection():
+    # Retrieve host and port from GUI inputs
     Host = host_var.get()
     Port = int(port_var.get())
 
     log_message("Setting up connection... Awaiting robot response.")
     
     try:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind((Host, Port))
-        s.listen()
-        s.settimeout(40)  # Set timeout for waiting for a connection
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            # Server setup
+            s.bind((Host, Port))
+            s.listen()
+            s.settimeout(40)  # Set timeout for waiting for a connection
+            
+            # Accept connection from client (robot)
+            conn, client_address = s.accept()
+            with conn:
+                log_message(f'Connected to robot by: {client_address}')
+                
+                # Communication with the client
+                try_connection = ''
+                while try_connection != 'robot start':
+                    try_connection = bytes.decode(conn.recv(1024))
+                log_message(f'Received from robot: {try_connection}')
+                
+                conn.send(str.encode('server start'))
+                log_message('Connection setup, both server and robot initialized')
 
-        # Accept connection from client (robot) in a separate thread
-        def accept_connection():
-            try:
-                conn, client_address = s.accept()
-                with conn:
-                    log_message(f'Connected to robot by: {client_address}')
+                while True:
+                    data_received = ''
+                    while data_received == '':
+                        data_received = bytes.decode(conn.recv(1024))
+                    print('Receive message from robot: ', data_received)
 
-                    try_connection = ''
-                    while try_connection != 'robot start':
-                        try_connection = bytes.decode(conn.recv(1024))
-                    log_message(f'Received from robot: {try_connection}')
+                    if data_received == 'wait pose':
+                        # Check object coordinate is empty?
+                        # empty will take a image from camera, and use object detection,
+                        # if the object detection return nothing, break
+                        # convert detection postion to robot coordinate, and save them in the list
+                        # Reply to robot to do nothing expect the robot send wait pose again
+                        # not empty will send reply the robot to pick position, then send one coordinate to robot
+                        # delete the coordinate from list
+                        break
 
-                    conn.send(str.encode('server start'))
-                    log_message('Connection setup, both server and robot initialized')
+                    if data_received == 'ocr pose':
+                        # take an image from camera, and use ocr to get text
+                        # process the text, and fill the dictionary
+                        # reply to robot to go to place pose
+                        # send the place id to the robot
+                        break
 
-                    handle_robot_communication(conn)
-
-            except socket.timeout:
-                log_message("Connection attempt timed out.")
-            except Exception as e:
-                log_message(f"An error occurred: {str(e)}")
-            finally:
-                s.close()
-
-        # Start the thread for accepting connections
-        threading.Thread(target=accept_connection).start()
-
+    except socket.timeout:
+        log_message("Connection attempt timed out.")
     except Exception as e:
-        log_message(f"An error occurred during setup: {str(e)}")
+        log_message(f"An error occurred: {str(e)}")
 
 # Create the main window
 root = tk.Tk()

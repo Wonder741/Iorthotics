@@ -156,7 +156,7 @@ def display_diction_table_gui(diction, rows=10, cols=7):
     # Start the Tkinter event loop
     root.mainloop()
 
-""" image_path = "D://uqcwan34//Pictures//Camera Roll//WIN_20240318_19_13_26_Pro.jpg"
+image_path = "D://uqcwan34//Pictures//Camera Roll//WIN_20240318_19_13_26_Pro.jpg"
 json_key_path = 'D://A//1 InsoleDataset//GoogleAPI//sanguine-link-334321-edd44f1199f6.json'
 aa = perform_ocr(image_path, json_key_path)
-print(aa) """
+print(aa)
