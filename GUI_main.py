@@ -188,6 +188,24 @@ def disconnect_socket():
 root = tk.Tk()
 root.title("Application")
 
+def move_arm(x, y, z):
+    global processed_floats
+    if global_socket:
+        current_pose = processed_floats[:3]  # Extract the current x, y, z coordinates
+        new_pose = [current_pose[i] + [x, y, z][i] for i in range(3)]  # Add the movement to the current pose
+        new_pose.extend(processed_floats[3:])  # Append the unchanged rx, ry, rz values
+        processed_floats = [int(x * 1000) for x in new_pose]  # Update processed_floats
+        
+        conn = global_socket
+        for x in processed_floats:
+            abs_x = abs(x)
+            sign = 1 if x >= 0 else 0  # 1 for positive, 0 for negative
+            conn.send(abs_x.to_bytes(4, 'big'))
+            conn.send(sign.to_bytes(4, 'big'))  # Send the sign as 1 byte
+        log_message('Send new pose to robot')
+    else:
+        log_message("No active socket connection. Please connect to the robot first.")
+
 # Default values for inputs
 default_values = {
     "camera_index": "0",
@@ -245,6 +263,12 @@ json_diction_path =data_folder_path + '//js_diction.json'
 # Controls (e.g., buttons)
 frame_controls = tk.Frame(root)
 frame_controls.pack(fill=tk.X, padx=10, pady=5)
+tk.Button(frame_controls, text="Move +X", command=lambda: move_arm(0.1, 0, 0)).pack(side=tk.LEFT, padx=5)
+tk.Button(frame_controls, text="Move -X", command=lambda: move_arm(-0.1, 0, 0)).pack(side=tk.LEFT, padx=5)
+tk.Button(frame_controls, text="Move +Y", command=lambda: move_arm(0, 0.1, 0)).pack(side=tk.LEFT, padx=5)
+tk.Button(frame_controls, text="Move -Y", command=lambda: move_arm(0, -0.1, 0)).pack(side=tk.LEFT, padx=5)
+tk.Button(frame_controls, text="Move +Z", command=lambda: move_arm(0, 0, 0.1)).pack(side=tk.LEFT, padx=5)
+tk.Button(frame_controls, text="Move -Z", command=lambda: move_arm(0, 0, -0.1)).pack(side=tk.LEFT, padx=5)
 
 tk.Button(frame_controls, text="Start", command=start_session).pack(side=tk.RIGHT)
 # Add the "Disconnect" button to the GUI
@@ -253,6 +277,11 @@ tk.Button(frame_controls, text="Disconnect", command=disconnect_socket).pack(sid
 # Text area for logging messages
 text_area = scrolledtext.ScrolledText(root, state='disabled', height=10)
 text_area.pack(padx=10, pady=5, fill=tk.BOTH, expand=True)
+
+
+# Initialize processed_floats with the initial pose
+processed_floats = [int(x * 1000) for x in [-0.382, 0.155, 0.374, 2.22, 2.22, 0]]
+
 
 root.mainloop()
 
