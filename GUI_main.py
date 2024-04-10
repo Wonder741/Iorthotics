@@ -85,9 +85,26 @@ def move_arm(x, y, z):
         new_pose.extend(processed_floats[3:])
         processed_floats = new_pose
         
+        signed_floats = processed_floats
+
+        for i in range(5):
+            if processed_floats[i] < 0:
+                signed_floats.append(0)
+            else:
+                signed_floats.append(1)
+
+        for i in signed_floats:
+            if i < 0:
+                i = i *-1
+
+        for i in range(5):
+            signed_floats[i] = signed_floats[i]*1000
+
         conn = global_socket
-        for value in processed_floats:
+        conn.send(str.encode('go place'))
+        for value in signed_floats:
             conn.send(struct.pack('f', value))
+            print(value)
         log_message('Send new pose to robot')
     else:
         log_message("No active socket connection. Please connect to the robot first.")
