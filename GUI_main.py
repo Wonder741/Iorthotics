@@ -2,7 +2,10 @@ import socket
 import json
 import os
 import GUI_function
+<<<<<<< Updated upstream
 import struct
+=======
+>>>>>>> Stashed changes
 import tkinter as tk
 import time
 from tkinter import simpledialog, scrolledtext, messagebox, Toplevel, Button
@@ -10,6 +13,7 @@ import threading
 
 Folder_path = 'D://A//1 InsoleDataset//Data//'
 # path for google vision setup key
+<<<<<<< Updated upstream
 google_key_path = 'D://A//1 InsoleDataset//Data//GoogleAPI//'
 # path for captured image storage
 OB_image_path = 'D://A//1 InsoleDataset//Data//OB//'
@@ -23,6 +27,9 @@ json_diction_path ='D://A//1 InsoleDataset//Data//js_diction.json'
 global_socket = None
 # Global variable to keep sent data for resend
 processed_floats = []
+=======
+google_key_path = 'D://A//1 InsoleDataset//GoogleAPI//'
+>>>>>>> Stashed changes
 
 def log_message(message):
     """Function to log messages to the text area in the GUI."""
@@ -135,6 +142,7 @@ def setup_robot_connection():
     log_message("Setting up connection... Awaiting robot response.")
     
     try:
+<<<<<<< Updated upstream
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.bind((Host, Port))
         s.listen()
@@ -167,6 +175,53 @@ def setup_robot_connection():
         # Start the thread for accepting connections
         threading.Thread(target=accept_connection).start()
 
+=======
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            # Server setup
+            s.bind((Host, Port))
+            s.listen()
+            s.settimeout(40)  # Set timeout for waiting for a connection
+            
+            # Accept connection from client (robot)
+            conn, client_address = s.accept()
+            with conn:
+                log_message(f'Connected to robot by: {client_address}')
+                
+                # Communication with the client
+                try_connection = ''
+                while try_connection != 'robot start':
+                    try_connection = bytes.decode(conn.recv(1024))
+                log_message(f'Received from robot: {try_connection}')
+                
+                conn.send(str.encode('server start'))
+                log_message('Connection setup, both server and robot initialized')
+
+                while True:
+                    data_received = ''
+                    while data_received == '':
+                        data_received = bytes.decode(conn.recv(1024))
+                    print('Receive message from robot: ', data_received)
+
+                    if data_received == 'wait pose':
+                        # Check object coordinate is empty?
+                        # empty will take a image from camera, and use object detection,
+                        # if the object detection return nothing, break
+                        # convert detection postion to robot coordinate, and save them in the list
+                        # Reply to robot to do nothing expect the robot send wait pose again
+                        # not empty will send reply the robot to pick position, then send one coordinate to robot
+                        # delete the coordinate from list
+                        break
+
+                    if data_received == 'ocr pose':
+                        # take an image from camera, and use ocr to get text
+                        # process the text, and fill the dictionary
+                        # reply to robot to go to place pose
+                        # send the place id to the robot
+                        break
+
+    except socket.timeout:
+        log_message("Connection attempt timed out.")
+>>>>>>> Stashed changes
     except Exception as e:
         log_message(f"An error occurred during setup: {str(e)}")
 
