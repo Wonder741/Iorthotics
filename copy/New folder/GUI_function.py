@@ -1,5 +1,6 @@
 import os
 import cv2
+import re
 from datetime import datetime
 from google.cloud import vision
 import csv
@@ -41,82 +42,14 @@ def perform_ocr(image_path, json_key_path):
         return texts[0].description.strip()
     else:
         return "No Text"
-    
-def capture_image(width, height, focus_value):
-    """
-#     Captures an image using camera 1 with specified resolution and focus.
-
-#     Args:
-#         width (int): The width of the image resolution.
-#         height (int): The height of the image resolution.
-#         focus_value (int): The focus value to set (0 to 255).
-
-#     Returns:
-#         numpy.ndarray: The captured image.
-#     """
-    # Open camera 1
-    cap = cv2.VideoCapture(1)
-
-    # Set resolution
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
-
-    # Set focus
-    cap.set(cv2.CAP_PROP_FOCUS, focus_value)
-
-    # Capture a frame
-    ret, frame = cap.read()
-
-    # Check if the frame was captured successfully
-    if not ret:
-        print("Failed to capture image")
-        return None
-
-    # Release the camera
-    cap.release()
-
-    return frame
-
-# def capture_image1(camera_index=0):
-#     """
-#     Captures an image from the specified camera.
-
-#     Args:
-#         camera_index (int): Index of the camera to use (default is 0).
-
-#     Returns:
-#         numpy.ndarray: The captured image, or None if the capture failed.
-#     """
-#     # Open the camera
-#     cap = cv2.VideoCapture(camera_index)
-
-#     # Check if the camera opened successfully
-#     if not cap.isOpened():
-#         print("Error: Could not open camera")
-#         return None
-
-#     # Capture a frame
-#     ret, frame = cap.read()
-
-#     # Check if the frame was captured successfully
-#     if not ret:
-#         print("Error: Could not capture frame")
-#         return None
-
-#     # Release the camera
-#     cap.release()
-
-#     return frame
 
 # Function to capture image from the usb camera. Subject to change if camera changes.
-def OCR_camera_capture(capture_camera_index, capture_frame_width, capture_frame_height):
+def OCR_camera_capture(capture_camera_index, capture_frame_width, capture_frame_height, capture_frame_focus):
     # initialize the camera
     capture_cam = cv2.VideoCapture(capture_camera_index, cv2.CAP_DSHOW)  # 0,1 -> index of camera
     capture_cam.set(cv2.CAP_PROP_FRAME_WIDTH, capture_frame_width)
-    capture_cam.set(cv2.CAP_PROP_FRAME_WIDTH, capture_frame_height)
-    #capture_cam.set(cv2.CAP_PROP_FOCUS, 1000)
-    #  capture_cam.set(cv2.CAP_PROP_BRIGHTNESS, 0)
-    #  capture_cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0)
+    capture_cam.set(cv2.CAP_PROP_FRAME_HEIGHT, capture_frame_height)
+    capture_cam.set(cv2.CAP_PROP_FOCUS, capture_frame_focus)
 
     capture_success, capture_camera_image = capture_cam.read()
     capture_cam.release()
@@ -126,23 +59,27 @@ def OCR_camera_capture(capture_camera_index, capture_frame_width, capture_frame_
     else:
         print('capture FAILED')
         return None
-    
-def image_save(image_to_save, save_path, image_index):
-    date_hour = datetime.now().strftime('%Y%m%d%H%M%S')
-    image_file_name = f"{save_path}{date_hour}{image_index}.jpg"
 
-    cv2.imwrite(save_path + 'scan.jpg', image_to_save)
+    
+def image_save(image_to_save, save_path):
+    date_hour = datetime.now().strftime('%Y%m%d%H%M%S')
+    image_file_name = f"{save_path}\\{date_hour}.jpg"
+
+    cv2.imwrite(save_path + '\\scan.jpg', image_to_save)
     cv2.imwrite(image_file_name, image_to_save)
 
     print(f'image saved as: {image_file_name}')
     return image_file_name
 
-def check_for_six_digit_number(lst):
+def check_for_six_digit_number(input_str):
+    # Split the input string into a list of elements separated by newlines
+    lst = input_str.split('\n')
+    cleaned_str = ''.join(filter(lambda x: x.isdigit() or x.isalpha(), input_str))
     for element in lst:
-        if element.isdigit() and len(element) == 6:
-            print('find order number: ', element)
-            return element, None
-    cleaned_str = ''.join(filter(lambda x: x.isdigit() or x.isalpha(), ''.join(lst)))
+        match = re.search(r'\b\d{6}\b', element)
+        if match:
+            print('find order number: ', match.group())
+            return match.group(), cleaned_str
     print('NO order number found, use keyword instead: ', cleaned_str)
     return None, cleaned_str
 
@@ -152,7 +89,6 @@ def build_diction(part_count):
             'order_id': '',
             'location_placed': False,
             'source': None,
-            'state': None,
             'pair_found': False,
             'keyword': ''
         } for diction_index in range(part_count)
@@ -221,8 +157,3 @@ def display_diction_table_gui(diction, rows=10, cols=7):
 
     # Start the Tkinter event loop
     root.mainloop()
-
-""" image_path = "D://uqcwan34//Pictures//Camera Roll//WIN_20240318_19_13_26_Pro.jpg"
-json_key_path = 'D://A//1 InsoleDataset//GoogleAPI//sanguine-link-334321-edd44f1199f6.json'
-aa = perform_ocr(image_path, json_key_path)
-print(aa) """

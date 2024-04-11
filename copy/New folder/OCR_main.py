@@ -5,24 +5,42 @@ import GUI_function
 import struct
 import tkinter as tk
 import time
-from tkinter import simpledialog, scrolledtext, messagebox, Toplevel, Button
+from tkinter import scrolledtext, Toplevel, Button
 import threading
 
-Folder_path = 'D://A//1 InsoleDataset//Data//'
 # path for google vision setup key
-google_key_path = 'D://A//1 InsoleDataset//Data//GoogleAPI//'
-# path for captured image storage
-OB_image_path = 'D://A//1 InsoleDataset//Data//OB//'
-OCR_image_path = 'D://A//1 InsoleDataset//Data//OCR//'
-# path for ocr text storage
-csv_store_path = 'D://A//1 InsoleDataset//Data//image_ocr.csv'
-# path for JSON file that keep diction
-json_diction_path ='D://A//1 InsoleDataset//Data//js_diction.json'
+google_key_path = 'D:\\A\\1 InsoleDataset\\Data\\GoogleAPI\\sanguine-link-334321-edd44f1199f6.json'
+
+current_directory = os.getcwd()  # Get the current working directory
+data_folder_path = os.path.join(current_directory, 'Data')  # Construct the path to the Data folder
+
+if not os.path.exists(data_folder_path):
+    os.makedirs(data_folder_path)
+
+# Path for captured image storage
+OB_image_store_path = os.path.join(data_folder_path, 'OB')
+OCR_image_store_path = os.path.join(data_folder_path, 'OCR')
+
+# Create the subfolders if they don't exist
+if not os.path.exists(OB_image_store_path):
+    os.makedirs(OB_image_store_path)
+
+if not os.path.exists(OCR_image_store_path):
+    os.makedirs(OCR_image_store_path)
+
+# Path for OCR text storage
+csv_store_path = os.path.join(OCR_image_store_path, 'image_ocr.csv')
+# Path for temp data check from server
+csv_temp_path = os.path.join(data_folder_path, 'order_export.csv')
+# Path for JSON file that keeps dictionary
+json_diction_path = os.path.join(data_folder_path, 'js_diction.json')
 
 # Global variable to keep track of the socket
 global_socket = None
 # Global variable to keep sent data for resend
+part_index = 0
 processed_floats = []
+terminate_code = 99
 
 def log_message(message):
     """Function to log messages to the text area in the GUI."""
@@ -33,6 +51,9 @@ def log_message(message):
 
 def start_session():
     """Custom dialog for session management."""
+    # build a diction for parts placement and pairing
+    global pair_diction
+    pair_diction = GUI_function.build_diction(int(max_pair_numbers_var.get()))
     def new_session():
         log_message("Start new session")
         dialog.destroy()
@@ -85,7 +106,7 @@ def handle_robot_communication(conn):
 
             if data_received == 'wait pose':
                 conn.send(str.encode('go pick'))
-                log_message('Send to robot: go pick')
+                log_message('Send message to robot: go pick')
                 time.sleep(0.5)
                 floats_to_send_1 = [-0.382, 0.155, 0.374, 2.22, 2.22, 0]
                 # Multiply each float by 1000 and convert to int
@@ -99,18 +120,35 @@ def handle_robot_communication(conn):
                 time.sleep(0.1)
 
             elif data_received == 'ocr pose':
+                image = GUI_function.OCR_camera_capture(int(ocr_camera_index_var.get()), int(camera_resolution_width_var.get()), int(camera_resolution_height_var.get()), 255)
+                image_file_name = GUI_function.image_save(image, OCR_image_store_path)
+                ocr_text = GUI_function.perform_ocr(OCR_image_store_path + '\\scan.jpg')
+                log_message('OCR recognized text: ', ocr_text)
+                part_number, part_keyword = GUI_function.check_for_six_digit_number(ocr_text)
+                place_position = GUI_function.diction_check_fill(part_number, part_keyword, pair_diction)
+                pair_save = [pair_diction, part_index]
+                # save dictionary as JSON file
+                with open(json_diction_path, 'w+') as js_file:
+                    json.dump(pair_save, js_file)                    
+                part_index = part_index + 1
+
                 conn.send(str.encode('go place'))
-                log_message('Send to robot: go place')
+                log_message('Send message to robot: go place')
                 time.sleep(0.5)
-                floats_to_send_2 = [-0.156, -0.381, 0.374, 0, 3.14, 0]
-                processed_floats = [int(x * 1000) for x in floats_to_send_2]
-                for x in processed_floats:
-                    abs_x = abs(x)
-                    sign = 1 if x >= 0 else 0  # 1 for positive, 0 for negative
-                    conn.send(abs_x.to_bytes(4, 'big'))
-                    conn.send(sign.to_bytes(4, 'big'))  # Send the sign as 1 byte
-                log_message('Send pose to robot')
-                time.sleep(0.1)
+
+                # Avoid exceed pairing space limitation
+                if place_position > 70:
+                    print('Exceed the maximum pair number')
+                    conn.send(terminate_code.to_bytes(4, 'big'))
+                else:
+                    print('Place position: ', place_position)
+                    conn.send(place_position.to_bytes(4, 'big'))
+                time.sleep(0.5)
+
+            elif data_received == 'placed pose':
+                conn.send(str.encode('go wait'))
+                log_message('Send message to robot: go wait')
+                time.sleep(0.5)
 
             elif data_received == 'send again':
                 time.sleep(0.5)
@@ -190,7 +228,8 @@ root.title("Application")
 
 # Default values for inputs
 default_values = {
-    "camera_index": "0",
+    "OB_camera_index": "2",
+    "OCR_camera_index": "1",
     "camera_resolution_width": "1920",
     "camera_resolution_height": "1080",
     "host": "192.168.0.10",
@@ -199,7 +238,8 @@ default_values = {
 }
 
 # Variables for inputs with default values
-camera_index_var = tk.StringVar(value=default_values["camera_index"])
+ob_camera_index_var = tk.StringVar(value=default_values["OB_camera_index"])
+ocr_camera_index_var = tk.StringVar(value=default_values["OCR_camera_index"])
 camera_resolution_width_var = tk.StringVar(value=default_values["camera_resolution_width"])
 camera_resolution_height_var = tk.StringVar(value=default_values["camera_resolution_height"])
 host_var = tk.StringVar(value=default_values["host"])
@@ -211,7 +251,8 @@ frame_inputs = tk.Frame(root)
 frame_inputs.pack(side=tk.TOP, fill=tk.X, padx=10, pady=5)
 
 # Dynamically create input fields based on default values
-for label, var in [("Camera Index:", camera_index_var),
+for label, var in [("OB Camera Index:", ob_camera_index_var),
+                   ("OCR Camera Index:", ocr_camera_index_var),
                    ("Camera Resolution Width:", camera_resolution_width_var),
                    ("Camera Resolution Height:", camera_resolution_height_var),
                    ("Host Address:", host_var),
@@ -221,26 +262,6 @@ for label, var in [("Camera Index:", camera_index_var),
     tk.Label(row, text=label, width=20, anchor='w').pack(side=tk.LEFT)
     tk.Entry(row, textvariable=var, width=20).pack(side=tk.RIGHT)
     row.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
-
-# build a diction for parts placement and pairing
-global pair_diction
-pair_diction = GUI_function.build_diction(int(max_pair_numbers_var.get()))
-pair_index = 0
-
-current_directory = os.getcwd()  # Get the current working directory
-data_folder_path = os.path.join(current_directory, 'Data')  # Construct the path to the Data folder
-
-if not os.path.exists(data_folder_path):
-    os.makedirs(data_folder_path)
-
-# path for captured image storage
-image_store_path = data_folder_path
-# path for ocr text storage
-csv_store_path = data_folder_path + '//image_ocr.csv'
-# path for temp data check from server
-csv_temp_path = data_folder_path + '//order_export.csv'
-# path for JSON file that keep diction
-json_diction_path =data_folder_path + '//js_diction.json'
 
 # Controls (e.g., buttons)
 frame_controls = tk.Frame(root)
