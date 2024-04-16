@@ -7,6 +7,8 @@ import tkinter as tk
 import time
 from tkinter import simpledialog, scrolledtext, messagebox, Toplevel, Button
 import threading
+import openai
+
 
 Folder_path = 'D://A//1 InsoleDataset//Data//'
 # path for google vision setup key
@@ -18,6 +20,9 @@ OCR_image_path = 'D://A//1 InsoleDataset//Data//OCR//'
 csv_store_path = 'D://A//1 InsoleDataset//Data//image_ocr.csv'
 # path for JSON file that keep diction
 json_diction_path ='D://A//1 InsoleDataset//Data//js_diction.json'
+
+
+openai.api_key = "API_KEY"
 
 # Global variable to keep track of the socket
 global_socket = None
@@ -213,9 +218,50 @@ def disconnect_socket():
     else:
         log_message("No active socket connection to close.")
 
+def handle_user_input():
+    user_input = user_input_entry.get()
+    log_message(f"User: {user_input}")
+    user_input_entry.delete(0, tk.END)
+
+    # Call GPT-4 API to get the response and coordinates
+    prompt = f"User: {user_input}\nAssistant: "
+    response = openai.Completion.create(
+        engine="gpt-4",
+        prompt=prompt,
+        max_tokens=100,
+        n=1,
+        stop=None,
+        temperature=0.7,
+    )
+
+    # Extract the chat response and coordinates from the API response
+    chat_response = response.choices[0].text.strip()
+    coordinates = extract_coordinates(chat_response)
+
+    # Display the chat response in the text area
+    log_message(f"Assistant: {chat_response}")
+
+    # Send the coordinates to the robot
+    send_coordinates(coordinates)
+
+def extract_coordinates(response):
+    # TODO: Implement logic to extract coordinates from the response
+    # For now, return a placeholder value
+    return [0.5, 0.5, 0.5]
+
+
+
+
 # Create the main window
 root = tk.Tk()
 root.title("Application")
+frame_chat = tk.Frame(root)
+frame_chat.pack(fill=tk.X, padx=10, pady=5)
+
+user_input_entry = tk.Entry(frame_chat, width=50)
+user_input_entry.pack(side=tk.LEFT, padx=5)
+
+tk.Button(frame_chat, text="Send", command=handle_user_input).pack(side=tk.LEFT)
 
 # Default values for inputs
 default_values = {
