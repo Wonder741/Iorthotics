@@ -1,5 +1,6 @@
 import cv2
 import base64
+import numpy as np
 from google.cloud import aiplatform
 from google.cloud.aiplatform.gapic.schema import predict
 from google.oauth2 import service_account
@@ -63,4 +64,19 @@ def detect_objects(camera_index, output_path, endpoint_id, project_id, location,
     # Release the camera
     cap.release()
 
-    return coordinates_list
+    # Perform coordinate transformation
+    object_detection_coordinates = np.array([[0.3959, 0.6515], [0.643, 0.883], [0.2430, 0.4398], [0.5, 0.5]])
+    robot_coordinates = np.array([[-501.95, 97.85], [-529.17, 554.63], [-215.54, 562.25], [-171, 108]])
+
+    # Calculate the transformation matrix
+    transformation_matrix, _ = cv2.findHomography(object_detection_coordinates, robot_coordinates)
+
+    # Transform the coordinates
+    transformed_coordinates = []
+    for coord in coordinates_list:
+        x, y = coord
+        transformed_point = np.dot(transformation_matrix, [x, y, 1])
+        transformed_x, transformed_y = transformed_point[:2] / transformed_point[2]
+        transformed_coordinates.append([transformed_x, transformed_y])
+
+    return transformed_coordinates
