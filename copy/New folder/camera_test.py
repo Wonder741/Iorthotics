@@ -1,6 +1,6 @@
 import GUI_function
 import cv2
-index = 0
+index = 1
 width = 1920
 height = 1080
 resolution = 255

@@ -9,7 +9,7 @@ from tkinter import scrolledtext, Toplevel, Button
 import threading
 
 # path for google vision setup key
-google_key_path = 'D:\\A\\1 InsoleDataset\\Data\\GoogleAPI\\sanguine-link-334321-edd44f1199f6.json'
+google_key_path = 'D:\\A\\1 InsoleDataset\\GoogleAPI\\sanguine-link-334321-edd44f1199f6.json'
 
 current_directory = os.getcwd()  # Get the current working directory
 data_folder_path = os.path.join(current_directory, 'Data')  # Construct the path to the Data folder
@@ -65,7 +65,7 @@ for data_received in simulated_data:
         time.sleep(0.1)
 
     elif data_received == 'ocr pose':
-        image = GUI_function.OCR_camera_capture(0, 1920, 1080, 255)
+        image = GUI_function.OCR_camera_capture(1, 1920, 1080, 255)
         image_file_name = GUI_function.image_save(image, OCR_image_store_path)
         ocr_text = GUI_function.perform_ocr(OCR_image_store_path + '\\scan.jpg', google_key_path)
         print('OCR recognized text: ', ocr_text)

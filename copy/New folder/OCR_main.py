@@ -9,7 +9,7 @@ from tkinter import scrolledtext, Toplevel, Button
 import threading
 
 # path for google vision setup key
-google_key_path = 'D:\\A\\1 InsoleDataset\\Data\\GoogleAPI\\sanguine-link-334321-edd44f1199f6.json'
+google_key_path = 'D:\\A\\1 InsoleDataset\\GoogleAPI\\sanguine-link-334321-edd44f1199f6.json'
 
 current_directory = os.getcwd()  # Get the current working directory
 data_folder_path = os.path.join(current_directory, 'Data')  # Construct the path to the Data folder
@@ -38,9 +38,9 @@ json_diction_path = os.path.join(data_folder_path, 'js_diction.json')
 # Global variable to keep track of the socket
 global_socket = None
 # Global variable to keep sent data for resend
-part_index = 0
+
 processed_floats = []
-terminate_code = 99
+
 
 def log_message(message):
     """Function to log messages to the text area in the GUI."""
@@ -95,6 +95,8 @@ def start_session():
 def handle_robot_communication(conn):
     global global_socket
     global_socket = conn  # Keep track of the socket
+    terminate_code = 99
+    part_index = 0
 
     try:
         while True:
@@ -108,7 +110,9 @@ def handle_robot_communication(conn):
                 conn.send(str.encode('go pick'))
                 log_message('Send message to robot: go pick')
                 time.sleep(0.5)
-                floats_to_send_1 = [-0.382, 0.155, 0.374, 2.22, 2.22, 0]
+                floats_to_send_1 = [
+                    
+                ]
                 # Multiply each float by 1000 and convert to int
                 processed_floats = [int(x * 1000) for x in floats_to_send_1]
                 for x in processed_floats:
@@ -122,8 +126,8 @@ def handle_robot_communication(conn):
             elif data_received == 'ocr pose':
                 image = GUI_function.OCR_camera_capture(int(ocr_camera_index_var.get()), int(camera_resolution_width_var.get()), int(camera_resolution_height_var.get()), 255)
                 image_file_name = GUI_function.image_save(image, OCR_image_store_path)
-                ocr_text = GUI_function.perform_ocr(OCR_image_store_path + '\\scan.jpg')
-                log_message('OCR recognized text: ', ocr_text)
+                ocr_text = GUI_function.perform_ocr(OCR_image_store_path + '\\scan.jpg', google_key_path)
+                print(ocr_text)
                 part_number, part_keyword = GUI_function.check_for_six_digit_number(ocr_text)
                 place_position = GUI_function.diction_check_fill(part_number, part_keyword, pair_diction)
                 pair_save = [pair_diction, part_index]
@@ -229,7 +233,7 @@ root.title("Application")
 # Default values for inputs
 default_values = {
     "OB_camera_index": "2",
-    "OCR_camera_index": "1",
+    "OCR_camera_index": "0",
     "camera_resolution_width": "1920",
     "camera_resolution_height": "1080",
     "host": "192.168.0.10",

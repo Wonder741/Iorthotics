@@ -1,5 +1,6 @@
 import os
 import cv2
+import io
 import re
 from datetime import datetime
 from google.cloud import vision
@@ -18,30 +19,36 @@ def perform_ocr(image_path, json_key_path):
     Returns:
         str: The extracted text from the image.
     """
-    # Set the environment variable for authentication
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_key_path
+    try:
+        # Set the environment variable for authentication
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = json_key_path
 
-    # Instantiate a client
-    client = vision.ImageAnnotatorClient()
+        # Instantiate a client
+        client = vision.ImageAnnotatorClient()
 
-    # Load the image file
-    with open(image_path, 'rb') as image_file:
-        content = image_file.read()
+        # Load the image file
+        with open(image_path, 'rb') as image_file:
+            content = image_file.read()
 
-    image = vision.Image(content=content)
+        image = vision.Image(content=content)
 
-    # Perform text detection
-    response = client.text_detection(image=image)
-    texts = response.text_annotations
+        # Perform text detection
+        response = client.text_detection(image=image)
+        texts = response.text_annotations
 
-    if response.error.message:
-        raise Exception(f'{response.error.message}\nFor more info on error messages, check: https://cloud.google.com/apis/design/errors')
+        if response.error.message:
+            raise Exception(f'{response.error.message}\nFor more info on error messages, check: https://cloud.google.com/apis/design/errors')
 
-    # Extract the first text annotation (the entire text block)
-    if texts:
-        return texts[0].description.strip()
-    else:
-        return "No Text"
+        if texts:
+            ocr_text = texts[0].description.strip()
+            print("OCR Text:", ocr_text)
+            return ocr_text
+        else:
+            print("No Text Detected")
+            return "No Text Detected"
+    except Exception as e:
+        print("Error during OCR:", e)
+        return "Error"
 
 # Function to capture image from the usb camera. Subject to change if camera changes.
 def OCR_camera_capture(capture_camera_index, capture_frame_width, capture_frame_height, capture_frame_focus):
@@ -157,3 +164,29 @@ def display_diction_table_gui(diction, rows=10, cols=7):
 
     # Start the Tkinter event loop
     root.mainloop()
+
+def google_vision_setup(env_var_value):
+    env_var = 'GOOGLE_APPLICATION_CREDENTIALS'
+    os.environ[env_var] = env_var_value
+
+
+def google_vision(google_vision_path):
+    #  detect text in image
+    google_vision_text = []
+    with io.open(google_vision_path, 'rb') as image_file:
+        content = image_file.read()
+
+    client = vision.ImageAnnotatorClient()
+    image = vision.Image(content=content)
+
+    response = client.text_detection(image=image)
+    annotations = response.text_annotations
+
+    if len(annotations) < 1:
+        print('NO characters detected')
+    else:
+        print('characters detected')
+        for i in range(1, len(annotations)):
+            google_vision_text.append(annotations[i].description)
+    print(google_vision_text)
+    return google_vision_text
