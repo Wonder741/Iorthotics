@@ -8,6 +8,7 @@ import time
 from tkinter import simpledialog, scrolledtext, messagebox, Toplevel, Button
 import threading
 import openai
+import take_photo
 
 
 Folder_path = 'D://A//1 InsoleDataset//Data//'
