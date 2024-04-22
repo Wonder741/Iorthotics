@@ -5,8 +5,10 @@ from google.cloud import aiplatform
 from google.cloud.aiplatform.gapic.schema import predict
 from google.oauth2 import service_account
 
-def detect_objects(camera_index, output_path, endpoint_id, project_id, location, service_account_path):
+def detect_objects(camera_index, output_path, endpoint_id, project_id, location, service_account_path, object_detection_coordinates, robot_coordinates, align_run):
     # Set the authentication credentials
+
+
     credentials = service_account.Credentials.from_service_account_file(service_account_path)
 
     # Open the camera
@@ -64,19 +66,24 @@ def detect_objects(camera_index, output_path, endpoint_id, project_id, location,
     # Release the camera
     cap.release()
 
-    # Perform coordinate transformation
-    object_detection_coordinates = np.array([[0.3959, 0.6515], [0.643, 0.883], [0.2430, 0.4398], [0.5, 0.5]])
-    robot_coordinates = np.array([[-501.95, 97.85], [-529.17, 554.63], [-215.54, 562.25], [-171, 108]])
+    if align_run:
+        return coordinates_list
+    else: 
+        # Perform coordinate transformation
+        # object_detection_coordinates = np.array([[0.3959, 0.6515], [0.643, 0.883], [0.2430, 0.4398], [0.5, 0.5]])
+        # robot_coordinates = np.array([[-501.95, 97.85], [-529.17, 554.63], [-215.54, 562.25], [-171, 108]])
+        object_detection_coordinates = np.array(object_detection_coordinates)
+        robot_coordinates = np.array(robot_coordinates)
 
-    # Calculate the transformation matrix
-    transformation_matrix, _ = cv2.findHomography(object_detection_coordinates, robot_coordinates)
+        # Calculate the transformation matrix
+        transformation_matrix, _ = cv2.findHomography(object_detection_coordinates, robot_coordinates)
 
-    # Transform the coordinates
-    transformed_coordinates = []
-    for coord in coordinates_list:
-        x, y = coord
-        transformed_point = np.dot(transformation_matrix, [x, y, 1])
-        transformed_x, transformed_y = transformed_point[:2] / transformed_point[2]
-        transformed_coordinates.append([transformed_x, transformed_y])
+        # Transform the coordinates
+        transformed_coordinates = []
+        for coord in coordinates_list:
+            x, y = coord
+            transformed_point = np.dot(transformation_matrix, [x, y, 1])
+            transformed_x, transformed_y = transformed_point[:2] / transformed_point[2]
+            transformed_coordinates.append([transformed_x, transformed_y])
 
-    return transformed_coordinates
+        return transformed_coordinates
