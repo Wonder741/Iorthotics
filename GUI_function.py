@@ -156,6 +156,31 @@ def display_diction_table_gui(diction, rows=10, cols=7):
     # Start the Tkinter event loop
     root.mainloop()
 
+import tkinter as tk
+from tkinter import ttk
+
+
+
+class Spinner(ttk.Frame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.spinner = ttk.Label(self, text="⌛", font=("", 20))
+        self.spinner.pack()
+        self.speed = 100  # Milliseconds between frames
+        self.current_frame = 0
+        self.frames = ["⌛", "⏳"]
+
+    def start(self):
+        self.update_spinner()
+
+    def stop(self):
+        self.after_cancel(self.after_id)
+
+    def update_spinner(self):
+        self.current_frame = (self.current_frame + 1) % len(self.frames)
+        self.spinner.config(text=self.frames[self.current_frame])
+        self.after_id = self.after(self.speed, self.update_spinner)
+
 """ image_path = "D://uqcwan34//Pictures//Camera Roll//WIN_20240318_19_13_26_Pro.jpg"
 json_key_path = 'D://A//1 InsoleDataset//GoogleAPI//sanguine-link-334321-edd44f1199f6.json'
 aa = perform_ocr(image_path, json_key_path)

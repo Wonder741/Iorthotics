@@ -32,6 +32,8 @@ processed_floats = []
 
 current_position = [0, 0, 0, 0, 0, 0]  # [x, y, z, rx, ry, rz]
 
+robot_coords = []  # Placeholder for robot coordinates
+
 
 def log_message(message):
     """Function to log messages to the text area in the GUI."""
@@ -322,14 +324,98 @@ json_diction_path =data_folder_path + '//js_diction.json'
 frame_controls = tk.Frame(root)
 frame_controls.pack(fill=tk.X, padx=10, pady=5)
 
+
+def show_align_modal(coordinates):
+    modal = tk.Toplevel(root)
+    modal.title("Align Coordinates")
+
+    # Create a dictionary to store the input fields
+    input_fields = {}
+
+    # Display the top 4 object coordinates and create input fields for robot coordinates
+    for i, coord in enumerate(coordinates[:4], start=1):
+        tk.Label(modal, text=f"Object {i} Coordinates: {coord}").pack()
+
+        # Create input fields for robot coordinates and store them in the dictionary
+        robot_x_entry = tk.Entry(modal)
+        robot_x_entry.pack()
+        robot_y_entry = tk.Entry(modal)
+        robot_y_entry.pack()
+        input_fields[f"object_{i}"] = (robot_x_entry, robot_y_entry)
+
+    # Save button to store the entered robot coordinates
+    def save_robot_coordinates():
+        robot_coordinates = []
+        for i in range(1, 5):
+            robot_x = float(input_fields[f"object_{i}"][0].get())
+            robot_y = float(input_fields[f"object_{i}"][1].get())
+            robot_coordinates.append([robot_x, robot_y])
+
+        # Store the robot coordinates in a variable
+        global robot_coords
+        robot_coords = robot_coordinates
+        print(robot_coords)
+
+        modal.destroy()
+
+    tk.Button(modal, text="Save", command=save_robot_coordinates).pack(pady=10)
+
+    modal.transient(root)
+    modal.grab_set()
+    root.wait_window(modal)
+
+def show_spinner(show):
+    if show:
+        # Create and display the spinner
+        spinner = GUI_function.Spinner(root)
+        spinner.start()
+        spinner.pack(pady=10)
+    else:
+        # Hide the spinner
+        for widget in root.winfo_children():
+            if isinstance(widget, GUI_function.Spinner):
+                widget.stop()
+                widget.destroy()
+
+def begin_align():
+
+    # Show a spinner or progress indicator
+    show_spinner(True)
+    camera_index = 1
+
+# Specify the output path for the captured image
+    output_path = "captured_image.jpg"
+
+    # Specify the Vertex AI endpoint details
+    endpoint_id = "9151919174212124672"
+    project_id = "260118072749"
+    location = "us-central1"  # Replace with your endpoint's location
+
+    # Specify the path to the service account key file
+    service_account_path = "applied-well-398400-e46266833ff0.json"
+
+    # Call the take_photo function with align set to True
+    coordinates = take_photo.detect_objects(camera_index, output_path, endpoint_id, project_id, location, service_account_path, object_detection_coordinates=[], robot_coordinates=robot_coords, align_run=True)
+
+    # Hide the spinner or progress indicator
+    show_spinner(False)
+
+    # Show the modal window with the top 4 object coordinates
+    show_align_modal(coordinates)
+
+
 tk.Button(frame_controls, text="Start", command=start_session).pack(side=tk.RIGHT)
 # Add the "Disconnect" button to the GUI
 tk.Button(frame_controls, text="Disconnect", command=disconnect_socket).pack(side=tk.RIGHT, padx=5)
 tk.Button(frame_controls, text="+X", command=move_x_positive).pack(side=tk.LEFT)
+tk.Button(frame_controls, text="Begin Align", command=begin_align).pack(side=tk.LEFT, padx=5)
 
 
 # Text area for logging messages
 text_area = scrolledtext.ScrolledText(root, state='disabled', height=10)
 text_area.pack(padx=10, pady=5, fill=tk.BOTH, expand=True)
+
+
+
 
 root.mainloop()

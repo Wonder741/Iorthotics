@@ -7,7 +7,7 @@ camera_index = 1
 output_path = "captured_image.jpg"
 
 # Specify the Vertex AI endpoint details
-endpoint_id = "9151919174212124672"
+endpoint_id = "696551611312373760"
 project_id = "260118072749"
 location = "us-central1"  # Replace with your endpoint's location
 
