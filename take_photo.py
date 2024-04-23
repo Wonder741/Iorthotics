@@ -1,3 +1,4 @@
+from xml.etree.ElementTree import tostring
 import cv2
 import base64
 import numpy as np
@@ -55,12 +56,18 @@ def detect_objects(camera_index, output_path, endpoint_id, project_id, location,
         coordinates_list = []
         predictions = response.predictions
         for prediction in predictions:
+            print(dict(prediction))
+            print(prediction['bboxes'])
             if 'bboxes' in prediction and prediction['bboxes']:
                 for bbox in prediction['bboxes']:
                     # Extract the coordinates from the bounding box
-                    x_min, y_min, x_max, y_max = bbox
+                    x_min, x_max, y_min, y_max = bbox
                     x_center = (x_min + x_max) / 2
-                    y_center = (y_min + y_max) / 2
+                    y_center = ((1-y_min) + (1-y_max)) / 2
+                    print(x_min)
+                    print(x_max)
+                    print(y_min)
+                    print(y_max)
                     coordinates_list.append([x_center, y_center])
 
     # Release the camera
