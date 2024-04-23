@@ -381,7 +381,7 @@ def begin_align():
 
     # Show a spinner or progress indicator
     show_spinner(True)
-    camera_index = 2 #2 on Chongguang laptop, 1 on Joseph laptop
+    camera_index = 1 #2 on Chongguang laptop, 1 on Joseph laptop
 
 # Specify the output path for the captured image
     output_path = "captured_image.jpg"
