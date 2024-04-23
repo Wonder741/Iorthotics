@@ -30,9 +30,10 @@ global_socket = None
 # Global variable to keep sent data for resend
 processed_floats = []
 
-current_position = [0, 0, 0, 0, 0, 0]  # [x, y, z, rx, ry, rz]
+current_position = [0, 0, 0, 3.14, 0, 0]  # [x, y, z, rx, ry, rz]
 
 robot_coords = []  # Placeholder for robot coordinates
+obj_coords = []  # Placeholder for object coordinates
 
 
 def log_message(message):
@@ -86,6 +87,19 @@ def handle_robot_communication(conn):
     global global_socket
     global_socket = conn  # Keep track of the socket
 
+    camera_index = 1 #2 on Chongguang laptop, 1 on Joseph laptop
+
+# Specify the output path for the captured image
+    output_path = "captured_image.jpg"
+
+    # Specify the Vertex AI endpoint details
+    endpoint_id = "696551611312373760"
+    project_id = "260118072749"
+    location = "us-central1"  # Replace with your endpoint's location
+
+    # Specify the path to the service account key file
+    service_account_path = "applied-well-398400-e46266833ff0.json"
+
     try:
         while True:
             data_received = bytes.decode(conn.recv(1024))
@@ -97,7 +111,7 @@ def handle_robot_communication(conn):
             if data_received == 'wait pose':
                 conn.send(str.encode('go place'))
                 log_message('Send to robot: go pick')
-                time.sleep(0.5)
+                time.sleep(5)
                 send_coordinates(current_position)
 
             elif data_received == 'ocr pose':
@@ -158,31 +172,31 @@ def setup_robot_connection():
     except Exception as e:
         log_message(f"An error occurred during setup: {str(e)}")
 
-top_left_camera = (0, 0)
-top_right_camera = (1, 0)
-bottom_left_camera = (0, 1)
-bottom_right_camera = (1, 1)
+# top_left_camera = (0, 0)
+# top_right_camera = (1, 0)
+# bottom_left_camera = (0, 1)
+# bottom_right_camera = (1, 1)
 
-top_left_robot = (0.1, 0.1, 0.1)  # Replace with actual recorded coordinates
-top_right_robot = (0.9, 0.1, 0.1)  # Replace with actual recorded coordinates
-bottom_left_robot = (0.1, 0.9, 0.1)  # Replace with actual recorded coordinates
-bottom_right_robot = (0.9, 0.9, 0.1)  # Replace with actual recorded coordinates
+# top_left_robot = (0.1, 0.1, 0.1)  # Replace with actual recorded coordinates
+# top_right_robot = (0.9, 0.1, 0.1)  # Replace with actual recorded coordinates
+# bottom_left_robot = (0.1, 0.9, 0.1)  # Replace with actual recorded coordinates
+# bottom_right_robot = (0.9, 0.9, 0.1)  # Replace with actual recorded coordinates
 
-def transform_coordinates(x, y):
-    # Calculate the scaling factors
-    scale_x = (top_right_robot[0] - top_left_robot[0]) / (top_right_camera[0] - top_left_camera[0])
-    scale_y = (bottom_left_robot[1] - top_left_robot[1]) / (bottom_left_camera[1] - top_left_camera[1])
+# def transform_coordinates(x, y):
+#     # Calculate the scaling factors
+#     scale_x = (top_right_robot[0] - top_left_robot[0]) / (top_right_camera[0] - top_left_camera[0])
+#     scale_y = (bottom_left_robot[1] - top_left_robot[1]) / (bottom_left_camera[1] - top_left_camera[1])
 
-    # Calculate the offset
-    offset_x = top_left_robot[0] - top_left_camera[0] * scale_x
-    offset_y = top_left_robot[1] - top_left_camera[1] * scale_y
+#     # Calculate the offset
+#     offset_x = top_left_robot[0] - top_left_camera[0] * scale_x
+#     offset_y = top_left_robot[1] - top_left_camera[1] * scale_y
 
-    # Transform the coordinates
-    robot_x = x * scale_x + offset_x
-    robot_y = y * scale_y + offset_y
-    robot_z = top_left_robot[2]  # Assume a constant z-coordinate
+#     # Transform the coordinates
+#     robot_x = x * scale_x + offset_x
+#     robot_y = y * scale_y + offset_y
+#     robot_z = top_left_robot[2]  # Assume a constant z-coordinate
 
-    return robot_x, robot_y, robot_z
+#     return robot_x, robot_y, robot_z
 
 
 def move_x_positive():
@@ -395,7 +409,7 @@ def begin_align():
     service_account_path = "applied-well-398400-e46266833ff0.json"
 
     # Call the take_photo function with align set to True
-    coordinates = take_photo.detect_objects(camera_index, output_path, endpoint_id, project_id, location, service_account_path, object_detection_coordinates=[], robot_coordinates=robot_coords, align_run=True)
+    coordinates = take_photo.detect_objects(camera_index, output_path, endpoint_id, project_id, location, service_account_path, object_detection_coordinates=obj_coords, robot_coordinates=robot_coords, align_run=True)
 
     # Hide the spinner or progress indicator
     show_spinner(False)
@@ -403,12 +417,29 @@ def begin_align():
     # Show the modal window with the top 4 object coordinates
     show_align_modal(coordinates)
 
+def default_align():
+    global robot_coords
+    robot_coords = [
+        [-206, -239],
+        [-462, -497],
+        [-200, -501],
+        [-462, -240]
+    ]
+    obj_coords = [
+        [0.254, 0.758],
+        [0.633, 0.3299],
+        [0.59, 0.794],
+        [0.18, 0.282]
+    ]
+    print(robot_coords)
 
 tk.Button(frame_controls, text="Start", command=start_session).pack(side=tk.RIGHT)
 # Add the "Disconnect" button to the GUI
 tk.Button(frame_controls, text="Disconnect", command=disconnect_socket).pack(side=tk.RIGHT, padx=5)
 tk.Button(frame_controls, text="+X", command=move_x_positive).pack(side=tk.LEFT)
 tk.Button(frame_controls, text="Begin Align", command=begin_align).pack(side=tk.LEFT, padx=5)
+tk.Button(frame_controls, text="Default Align", command=default_align).pack(side=tk.LEFT, padx=5)
+
 
 
 # Text area for logging messages
