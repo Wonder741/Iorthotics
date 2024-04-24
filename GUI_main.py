@@ -22,6 +22,18 @@ csv_store_path = 'D://A//1 InsoleDataset//Data//image_ocr.csv'
 # path for JSON file that keep diction
 json_diction_path ='D://A//1 InsoleDataset//Data//js_diction.json'
 
+camera_index = 1 #2 on Chongguang laptop, 1 on Joseph laptop
+
+# Specify the output path for the captured image
+output_path = "captured_image.jpg"
+
+# Specify the Vertex AI endpoint details
+endpoint_id = "704432910660272128"
+project_id = "260118072749"
+location = "us-central1"  # Replace with your endpoint's location
+
+# Specify the path to the service account key file
+service_account_path = "applied-well-398400-e46266833ff0.json"
 
 openai.api_key = "API_KEY"
 
@@ -30,7 +42,7 @@ global_socket = None
 # Global variable to keep sent data for resend
 processed_floats = []
 
-current_position = [0, 0, 0, 3.14, 0, 0]  # [x, y, z, rx, ry, rz]
+current_position = [0, 0, 0, 0.314, 0, 0]  # [x, y, z, rx, ry, rz]
 
 robot_coords = []  # Placeholder for robot coordinates
 obj_coords = []  # Placeholder for object coordinates
@@ -395,18 +407,7 @@ def begin_align():
 
     # Show a spinner or progress indicator
     show_spinner(True)
-    camera_index = 1 #2 on Chongguang laptop, 1 on Joseph laptop
-
-# Specify the output path for the captured image
-    output_path = "captured_image.jpg"
-
-    # Specify the Vertex AI endpoint details
-    endpoint_id = "696551611312373760"
-    project_id = "260118072749"
-    location = "us-central1"  # Replace with your endpoint's location
-
-    # Specify the path to the service account key file
-    service_account_path = "applied-well-398400-e46266833ff0.json"
+    
 
     # Call the take_photo function with align set to True
     coordinates = take_photo.detect_objects(camera_index, output_path, endpoint_id, project_id, location, service_account_path, object_detection_coordinates=obj_coords, robot_coordinates=robot_coords, align_run=True)
@@ -433,12 +434,25 @@ def default_align():
     ]
     print(robot_coords)
 
+def collect():
+    default_coordinates = [0, 0, 0, 0.314, 0, 0]
+    coordinates = take_photo.detect_objects(camera_index, output_path, endpoint_id, project_id, location, service_account_path, object_detection_coordinates=obj_coords, robot_coordinates=robot_coords, align_run=False)
+    for i in coordinates:
+        for j in i:
+            j = j*0.001
+    #Grab the first coordinate tuple and replace the first (x) and second (y) values in default_coordinates with them respectively.
+    default_coordinates[0] = coordinates[0][0]
+    default_coordinates[1] = coordinates[0][1]
+    send_coordinates(default_coordinates)
+    
+
 tk.Button(frame_controls, text="Start", command=start_session).pack(side=tk.RIGHT)
 # Add the "Disconnect" button to the GUI
 tk.Button(frame_controls, text="Disconnect", command=disconnect_socket).pack(side=tk.RIGHT, padx=5)
 tk.Button(frame_controls, text="+X", command=move_x_positive).pack(side=tk.LEFT)
 tk.Button(frame_controls, text="Begin Align", command=begin_align).pack(side=tk.LEFT, padx=5)
 tk.Button(frame_controls, text="Default Align", command=default_align).pack(side=tk.LEFT, padx=5)
+tk.Button(frame_controls, text="Collect", command=collect).pack(side=tk.LEFT, padx=5)
 
 
 
