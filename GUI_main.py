@@ -22,7 +22,7 @@ csv_store_path = 'D://A//1 InsoleDataset//Data//image_ocr.csv'
 # path for JSON file that keep diction
 json_diction_path ='D://A//1 InsoleDataset//Data//js_diction.json'
 
-camera_index = 1 #2 on Chongguang laptop, 1 on Joseph laptop
+camera_index = 2 #2 on Chongguang laptop, 1 on Joseph laptop
 
 # Specify the output path for the captured image
 output_path = "captured_image.jpg"
@@ -42,7 +42,7 @@ global_socket = None
 # Global variable to keep sent data for resend
 processed_floats = []
 
-current_position = [0, 0, 0, 0.314, 0, 0]  # [x, y, z, rx, ry, rz]
+current_position = [0, 0]  # [x, y, z, rx, ry, rz]
 
 robot_coords = []  # Placeholder for robot coordinates
 obj_coords = []  # Placeholder for object coordinates
@@ -121,9 +121,9 @@ def handle_robot_communication(conn):
             log_message(f'Received from robot: {data_received}')
 
             if data_received == 'wait pose':
-                conn.send(str.encode('go place'))
+                conn.send(str.encode('go pick'))
                 log_message('Send to robot: go pick')
-                time.sleep(5)
+                time.sleep(15)
                 send_coordinates(current_position)
 
             elif data_received == 'ocr pose':
@@ -221,9 +221,11 @@ def send_coordinates(coordinates):
     if global_socket:
         try:
             processed_floats = [int(x * 1000) for x in coordinates]
+            # global_socket.send(str.encode('go pick'))
             for x in processed_floats:
                 abs_x = abs(x)
                 sign = 1 if x >= 0 else 0  # 1 for positive, 0 for negative
+                print("array " + str(abs_x.to_bytes(4, 'big')))
                 global_socket.send(abs_x.to_bytes(4, 'big'))
                 global_socket.send(sign.to_bytes(4, 'big'))  # Send the sign as 1 byte
             log_message('Send coordinates to robot')
@@ -420,11 +422,12 @@ def begin_align():
 
 def default_align():
     global robot_coords
+    global obj_coords
     robot_coords = [
-        [-206, -239],
-        [-462, -497],
-        [-200, -501],
-        [-462, -240]
+        [-206, 239],
+        [-462, 497],
+        [-200, 501],
+        [-462, 240]
     ]
     obj_coords = [
         [0.254, 0.758],
@@ -435,15 +438,19 @@ def default_align():
     print(robot_coords)
 
 def collect():
-    default_coordinates = [0, 0, 0, 0.314, 0, 0]
+    global current_position
+    default_coordinates = [0, 0]
     coordinates = take_photo.detect_objects(camera_index, output_path, endpoint_id, project_id, location, service_account_path, object_detection_coordinates=obj_coords, robot_coordinates=robot_coords, align_run=False)
+    print(coordinates)
     for i in coordinates:
         for j in i:
             j = j*0.001
     #Grab the first coordinate tuple and replace the first (x) and second (y) values in default_coordinates with them respectively.
-    default_coordinates[0] = coordinates[0][0]
-    default_coordinates[1] = coordinates[0][1]
-    send_coordinates(default_coordinates)
+    default_coordinates[0] = coordinates[0][0] * 0.001
+    default_coordinates[1] = coordinates[0][1] * 0.001
+    # send_coordinates(default_coordinates)
+    print(str(coordinates[0]))
+    current_position = default_coordinates
     
 
 tk.Button(frame_controls, text="Start", command=start_session).pack(side=tk.RIGHT)

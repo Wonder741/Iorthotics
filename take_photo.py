@@ -56,18 +56,12 @@ def detect_objects(camera_index, output_path, endpoint_id, project_id, location,
         coordinates_list = []
         predictions = response.predictions
         for prediction in predictions:
-            print(dict(prediction))
-            print(prediction['bboxes'])
             if 'bboxes' in prediction and prediction['bboxes']:
                 for bbox in prediction['bboxes']:
                     # Extract the coordinates from the bounding box
                     x_min, x_max, y_min, y_max = bbox
                     x_center = (x_min + x_max) / 2
                     y_center = ((1-y_min) + (1-y_max)) / 2
-                    print(x_min)
-                    print(x_max)
-                    print(y_min)
-                    print(y_max)
                     coordinates_list.append([x_center, y_center])
 
     # Release the camera
@@ -81,7 +75,6 @@ def detect_objects(camera_index, output_path, endpoint_id, project_id, location,
         # robot_coordinates = np.array([[-501.95, 97.85], [-529.17, 554.63], [-215.54, 562.25], [-171, 108]])
         object_detection_coordinates = np.array(object_detection_coordinates)
         robot_coordinates = np.array(robot_coordinates)
-
         # Calculate the transformation matrix
         transformation_matrix, _ = cv2.findHomography(object_detection_coordinates, robot_coordinates)
 
