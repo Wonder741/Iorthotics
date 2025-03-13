@@ -25,7 +25,7 @@ part_index = 0
 max_pair_number = 70
 terminate_code = 99
 # build a diction for parts placement and pairing
-pair_diction = scriptFunctions.build_diction()
+pair_diction = scriptFunctions.build_diction(max_pair_number)
 
 # Input "n" to start new session
 while True:
@@ -66,22 +66,32 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         conn.send(str.encode('server start'))
         print('Connection setup, both server and robot initialized')
 
+        time_count = 0
+
         # system start picking and placing operation
         while True:
             data_received = ''
             while data_received == '':
                 data_received = bytes.decode(conn.recv(1024))
                 time.sleep(1)
+                time_count += 1
+                if time_count >= 30:
+                    pair_diction = scriptFunctions.build_diction(max_pair_number)
+                    time_count = 0
+                    print('Waiting timeout, reset the diction.')
+
+                print('@ Waiting state...')
             print('Receive message from robot: ', data_received)
 
             if  data_received == 'robot start':
-                # a new connection initialize, send start command to robot
+                # a new connection initialize, send start command to robot, go pick state
                 conn.send(str.encode('server start'))
-                print('Connection setup, both server and robot initialized')
+                print('@ Pick state...')
 
             if data_received == 'part not found':
                 # nothing found in raw area, go waiting state
                 data_received = ''
+                print('@ Waiting state...')
 
             if data_received == 'ocr position':
                 # ocr camera capture image
@@ -101,6 +111,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     json.dump(pair_save, js_file)
                 
                 part_index = part_index + 1
+                print('@ OCR state...')
 
                 # Avoid exceed pairing space limitation
                 if place_position > 70:
@@ -111,7 +122,8 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     conn.send(place_position.to_bytes(4, 'big'))
 
             if data_received == 'part placed':
-                # go back to pick area
+                # go back to pick state
                 conn.send(str.encode('go pick'))
+                print('@ Place state...')
             
             time.sleep(1)
