@@ -3,7 +3,7 @@ import json
 import scriptFunctions
 import time
 
-googleAPIKey = "AIzaSyCiwe0jvPa8aVnn69A8C0SJRfRGcmJ081o"
+googleAPIKey = "*"
 
 image_store_folder = 'Image'
 # path for ocr text storage
