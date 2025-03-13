@@ -84,8 +84,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                     pair_diction = scriptFunctions.build_diction(max_pair_number)
                     time_count = 0
                     print('Waiting timeout, reset the diction.')
-
-                print('@ Waiting state...')
+                    print('@ Waiting state...')
             print('Receive message from robot: ', data_received)
 
             if  data_received == 'robot start':
