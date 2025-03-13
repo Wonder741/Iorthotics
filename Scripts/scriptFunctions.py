@@ -1,220 +1,134 @@
-import os
-import cv2
-from datetime import datetime
-from google.cloud import vision
-from google.auth.credentials import AnonymousCredentials
-from google.auth.transport.requests import Request
-from google.auth.credentials import Credentials
+import socket
+import json
+import scriptFunctions
+import time
 
-"""
-Image processing section
-"""
-def perform_ocr(image_path, api_key):
-    """
-    Performs OCR using Google Cloud Vision API on the given image.
+# Read Google API key from text file
+try:
+    with open('google_api_key.txt', 'r') as file:
+        google_api_key = file.read().strip()
+except FileNotFoundError:
+    raise Exception("google_api_key.txt file not found. Please create this file and place your API key inside.")
 
-    Args:
-        image_path (str): The path to the image file.
-        api_key (str): The Google Cloud API key.
+image_store_folder = 'Image'
+# path for ocr text storage
+csv_store_folder = 'CSV'
+# path for JSON file that keep diction
+json_diction_path ='JSON/diction.json'
 
-    Returns:
-        str: The extracted text from the image.
-    """
-    # Create a custom session with the API key
-    credentials = AnonymousCredentials()
-    session = Request()
-    credentials = Credentials(api_key=api_key, refresh_token=None, token=None, token_uri=None)
-    client_options = {
-        "credentials": credentials,
-        "quota_project_id": None,
-    }
-    
-    # Instantiate a client with the API key
-    client = vision.ImageAnnotatorClient(client_options=client_options)
+# camera index and resolution setting
+camera_index = 0
+camera_resolution_width = 3224
+camera_resolution_height = 2448
 
-    # Load the image file
-    with open(image_path, 'rb') as image_file:
-        content = image_file.read()
+# computer IP address as server
+Host = "192.168.0.10"
+Port = 30000
 
-    image = vision.Image(content=content)
+# max pairs number
+part_index = 0
+max_pair_number = 70
+terminate_code = 99
+# build a diction for parts placement and pairing
+pair_diction = scriptFunctions.build_diction(max_pair_number)
 
-    # Perform text detection
-    response = client.text_detection(image=image)
-    texts = response.text_annotations
-
-    if response.error.message:
-        raise Exception(f'{response.error.message}\nFor more info on error messages, check: https://cloud.google.com/apis/design/errors')
-
-    # Extract the first text annotation (the entire text block)
-    if texts:
-        return texts[0].description.strip()
+# Input "n" to start new session
+while True:
+    sess = input('\nStart new session? (Enter n for new, c to continue previous, or any other key to exit)')
+    if sess == 'n':
+        print('Start new session')
+        break
+    if sess == 'c':
+        print('Continue previous session')
+        # load saved JSON as dictionary ([0]dictionary, [1]placed part number)
+        with open(json_diction_path, 'r') as js_load:
+            js_read = json.load(js_load)
+        part_index = int(js_read[1]) + 1
+        for js_index in range(part_index):
+            pair_diction[js_index] = js_read[0][str(js_index)]
+        break
     else:
-        return "No Text"
+        print('Exiting')
+        exit(0)
 
+# setup connection between computer and client robot using TCP/IPV4
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+    # server setup
+    s.bind((Host, Port))
+    s.listen()
+    #s.settimeout(40)
+    print("Awaiting robot response")
 
-def capture_image_from_camera(camera_index=0, frame_width=640, frame_height=480):
-    """
-    Capture an image from a USB camera.
+    # create object for send and receive data
+    conn, client_address = s.accept()
+    with conn:
+        # communication between server and client
+        print('Connected to robot by: ', client_address)
+        try_connection = ''
+        while try_connection != 'robot start':
+            try_connection = bytes.decode(conn.recv(1024))
+        print('Received from robot: ', try_connection)
+        conn.send(str.encode('server start'))
+        print('Connection setup, both server and robot initialized')
 
-    Parameters:
-        camera_index (int): Index of the camera to be used for capturing (default is 0).
-        frame_width (int): Width of the frame to be captured (default is 640).
-        frame_height (int): Height of the frame to be captured (default is 480).
+        time_count = 0
 
-    Returns:
-        numpy.ndarray: The captured image if successful, None otherwise.
-    """
-    # Initialize the camera
-    cam = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
-    
-    # Set the camera properties
-    cam.set(cv2.CAP_PROP_FRAME_WIDTH, frame_width)
-    cam.set(cv2.CAP_PROP_FRAME_HEIGHT, frame_height)
-    cam.set(cv2.CAP_PROP_AUTOFOCUS, 0)
-    
-    # Additional settings can be uncommented and adjusted as needed
-    # cam.set(cv2.CAP_PROP_BRIGHTNESS, <value>)
-    # cam.set(cv2.CAP_PROP_AUTO_EXPOSURE, <value>)
-    
-    # Capture the image
-    success, frame = cam.read()
-    cam.release()
+        # system start picking and placing operation
+        while True:
+            data_received = ''
+            while data_received == '':
+                data_received = bytes.decode(conn.recv(1024))
+                time.sleep(1)
+                time_count += 1
+                if time_count >= 30:
+                    pair_diction = scriptFunctions.build_diction(max_pair_number)
+                    time_count = 0
+                    print('Waiting timeout, reset the diction.')
 
-    if success:
-        print('Image capture successful.')
-        return frame
-    else:
-        print('Image capture failed.')
-        return None
+                print('@ Waiting state...')
+            print('Receive message from robot: ', data_received)
 
-    
-import os
-from datetime import datetime
-import cv2
+            if  data_received == 'robot start':
+                # a new connection initialize, send start command to robot, go pick state
+                conn.send(str.encode('server start'))
+                print('@ Pick state...')
 
-def save_image(image, save_directory, image_index):
-    """
-    Save an image with a timestamp and index as part of the filename.
+            if data_received == 'part not found':
+                # nothing found in raw area, go waiting state
+                data_received = ''
+                print('@ Waiting state...')
 
-    Parameters:
-        image (numpy.ndarray): The image to be saved.
-        save_directory (str): The directory where the image should be saved.
-        image_index (int): A unique index to append to the image filename.
+            if data_received == 'ocr position':
+                # ocr camera capture image
+                capture_image = scriptFunctions.capture_image_from_camera(camera_index, camera_resolution_width, camera_resolution_height)
+                # save image for ocr and backup
+                saved_image_name = scriptFunctions.save_image(capture_image, image_store_folder, part_index)
+                # ocr by google vision
+                ocr_text = scriptFunctions.perform_ocr(saved_image_name, googleAPIKey)
+                print('OCR recognized text: ', ocr_text)
+                # process ocr strings
+                part_number, part_keyword = scriptFunctions.check_for_six_digit_number(ocr_text)
+                # calculate place position
+                place_position = scriptFunctions.diction_check_fill(part_number, part_keyword, pair_diction)
+                pair_save = [pair_diction, part_index]
+                # save dictionary as JSON file
+                with open(json_diction_path, 'w+') as js_file:
+                    json.dump(pair_save, js_file)
+                
+                part_index = part_index + 1
+                print('@ OCR state...')
 
-    Returns:
-        str: The full path to the saved image file.
-    """
-    # Ensure the save directory exists
-    os.makedirs(save_directory, exist_ok=True)
-    
-    # Generate a timestamp for the filename
-    timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
-    
-    # Construct the full file path
-    image_file_name = f"{timestamp}_{image_index}.jpg"
-    image_file_path = os.path.join(save_directory, image_file_name)
-    
-    # Save the image
-    cv2.imwrite(image_file_path, image)
-    
-    # Save the scan image as well
-    scan_file_path = os.path.join(save_directory, 'scan.jpg')
-    cv2.imwrite(scan_file_path, image)
+                # Avoid exceed pairing space limitation
+                if place_position > 70:
+                    print('Exceed the maximum pair number')
+                    conn.send(terminate_code.to_bytes(4, 'big'))
+                else:
+                    print('Place position: ', place_position)
+                    conn.send(place_position.to_bytes(4, 'big'))
 
-    # Log the saved image path
-    print(f'Image saved as: {image_file_path}')
-    
-    return image_file_path
-
-"""
-Srting processing section
-"""
-def check_for_six_digit_number(lst):
-    """
-    Checks a list of strings for a six-digit number. If found, returns the number.
-    If not found, concatenates all alphanumeric characters from the list and returns that instead.
-
-    Parameters:
-        lst (list of str): List of strings to be checked.
-
-    Returns:
-        tuple: A tuple containing either a six-digit number and None, or None and the cleaned string.
-    """
-    # Iterate through the list to find a six-digit number
-    for element in lst:
-        if element.isdigit() and len(element) == 6:
-            print(f'Order number found: {element}')
-            return element, None
-
-    # Concatenate alphanumeric characters from the list if no six-digit number is found
-    cleaned_str = ''.join(filter(str.isalnum, ''.join(lst)))
-    print(f'No order number found, using keyword instead: {cleaned_str}')
-    
-    return None, cleaned_str
-
-def build_dictionary(part_count):
-    """
-    Builds a dictionary with a specified number of entries, each initialized with a set of default values.
-
-    Parameters:
-        part_count (int): The number of entries (keys) in the dictionary.
-
-    Returns:
-        dict: A dictionary where each key is an index (0 to part_count-1) and the value is a dictionary 
-              with predefined keys and default values.
-    """
-    # Create the dictionary with default values for each part
-    return {
-        index: {
-            'order_id': '',
-            'location_placed': False,
-            'source': None,
-            'state': None,
-            'pair_found': False,
-            'keyword': ''
-        } for index in range(part_count)
-    }
-
-def diction_check_fill(element, cleaned_str, diction):
-    """
-    Checks and updates a dictionary with an order number or a keyword. If the element is found in the dictionary,
-    it marks the pair as found and updates the source. If not found, it places the element or keyword in the 
-    first available location.
-
-    Parameters:
-        element (str): The order number to be checked and filled in the dictionary.
-        cleaned_str (str): The keyword to be checked if the order number is not found.
-        diction (dict): The dictionary to be checked and updated.
-
-    Returns:
-        int: The index in the dictionary where the element or keyword was found or placed.
-    """
-    if element:
-        for index, item in diction.items():
-            if item['order_id'] == element:
-                item['pair_found'] = True
-                item['source'] = 'Internal'
-                print(f'Order number {element} found, pair found at index {index}.')
-                return index
-        for index, item in diction.items():
-            if not item['location_placed']:
-                item['location_placed'] = True
-                item['order_id'] = element
-                item['source'] = 'Internal'
-                print(f'Order number {element} not found, placed at new location index {index}.')
-                return index
-    else:
-        for index, item in diction.items():
-            if item['keyword'] == cleaned_str:
-                item['pair_found'] = True
-                item['source'] = 'External'
-                print(f'Keyword {cleaned_str} found, pair found at index {index}.')
-                return index
-        for index, item in diction.items():
-            if not item['location_placed']:
-                item['location_placed'] = True
-                item['keyword'] = cleaned_str
-                item['source'] = 'External'
-                print(f'Keyword {cleaned_str} not found, placed at new location index {index}.')
-                return index
-
+            if data_received == 'part placed':
+                # go back to pick state
+                conn.send(str.encode('go pick'))
+                print('@ Place state...')
+            
+            time.sleep(1)
