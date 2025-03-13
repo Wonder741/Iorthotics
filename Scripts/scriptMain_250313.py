@@ -71,15 +71,17 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             data_received = ''
             while data_received == '':
                 data_received = bytes.decode(conn.recv(1024))
+                time.sleep(1)
             print('Receive message from robot: ', data_received)
 
-            '''if data_received == 'part found':
-                # Robot camera try to find part in raw area
-                conn.send(str.encode('go ocr'))'''
+            if  data_received == 'robot start':
+                # a new connection initialize, send start command to robot
+                conn.send(str.encode('server start'))
+                print('Connection setup, both server and robot initialized')
 
             if data_received == 'part not found':
-                # nothing found in raw area, go next operation
-                break
+                # nothing found in raw area, go waiting state
+                data_received = ''
 
             if data_received == 'ocr position':
                 # ocr camera capture image
@@ -89,11 +91,9 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
                 # ocr by google vision
                 ocr_text = scriptFunctions.perform_ocr(saved_image_name, googleAPIKey)
                 print('OCR recognized text: ', ocr_text)
-                # save ocr text on csv file
-                #scriptFunctions.write_csv(csv_store_path, saved_image_name, ocr_text)
                 # process ocr strings
                 part_number, part_keyword = scriptFunctions.check_for_six_digit_number(ocr_text)
-
+                # calculate place position
                 place_position = scriptFunctions.diction_check_fill(part_number, part_keyword, pair_diction)
                 pair_save = [pair_diction, part_index]
                 # save dictionary as JSON file
